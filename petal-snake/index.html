@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Snake · Build Petals Arcade</title>
+<meta name="description" content="Grow your vine, pick real Build Petals flowers, and chase a high score.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#101a42; --navy2:#17245a; --grid:rgba(143,199,255,.10);
+    --lav:#b9a7f5; --lav2:#8f7ae6; --sky:#8fc7ff; --cream:#fff6e5;
+    --brick:#3fae5a; --brick-d:#2b8a44; --red:#ff6b7d; --gold:#ffd166;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--navy);color:var(--cream);
+    font-family:"Fredoka",system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+  body{
+    background:
+      linear-gradient(var(--grid) 1px,transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/24px 24px,
+      radial-gradient(ellipse at top,var(--navy2),var(--navy) 70%);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  #app{width:100%;height:100%;max-width:640px;display:flex;flex-direction:column;align-items:center;padding:10px 10px 12px;gap:8px}
+  header{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .title{font-weight:700;font-size:clamp(18px,4.6vw,26px);letter-spacing:.5px;line-height:1}
+  .title span{color:var(--lav)}
+  .stats{display:flex;gap:6px}
+  .pill{background:rgba(255,246,229,.08);border:2px dashed rgba(185,167,245,.55);border-radius:999px;
+    padding:4px 10px;font-weight:600;font-size:clamp(12px,3.2vw,15px);white-space:nowrap}
+  .pill b{color:var(--gold)}
+  .iconbtn{background:var(--lav);color:var(--navy);border:0;border-radius:10px;width:34px;height:34px;
+    font-size:17px;cursor:pointer;box-shadow:0 3px 0 var(--lav2);flex:none}
+  .iconbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--lav2)}
+  #stage{position:relative;flex:1;width:100%;min-height:0;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;border-radius:14px;box-shadow:0 0 0 3px rgba(185,167,245,.6),0 12px 30px rgba(0,0,0,.35);touch-action:none}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px}
+  .card{background:var(--cream);color:var(--navy);border-radius:18px;padding:18px 18px 16px;width:min(92%,380px);
+    text-align:center;box-shadow:0 6px 0 var(--lav2),0 18px 40px rgba(0,0,0,.4);position:relative;max-height:100%;overflow:auto}
+  .card:before{content:"";position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:60%;height:12px;
+    background:radial-gradient(circle,var(--lav) 5px,transparent 6px) 0 0/24px 12px;}
+  .card h1{margin:2px 0 6px;font-size:30px;line-height:1.05}
+  .card h1 span{color:var(--lav2)}
+  .card p{margin:6px 0;font-size:15px;line-height:1.35;font-weight:500}
+  .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 4px}
+  .legend div{display:flex;align-items:center;gap:4px;background:#fff;border:2px dashed #d9cff8;border-radius:10px;padding:3px 7px 3px 3px;font-size:12px;font-weight:600}
+  .legend img{width:26px;height:26px;object-fit:contain}
+  .btn{display:inline-block;background:var(--lav);color:var(--navy);border:0;border-radius:12px;padding:11px 20px;
+    font:700 17px "Fredoka",sans-serif;cursor:pointer;box-shadow:0 4px 0 var(--lav2);text-decoration:none;margin:6px 4px 2px}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--lav2)}
+  .btn.alt{background:var(--sky);box-shadow:0 4px 0 #5c9be0}
+  .btn.ghost{background:transparent;box-shadow:none;border:2px dashed var(--lav2);padding:9px 16px;font-size:15px}
+  .hint{font-size:12px!important;opacity:.7}
+  .big{font-size:44px;font-weight:700;color:var(--lav2);line-height:1}
+  .shop{display:flex;align-items:center;gap:10px;background:#fff;border:2px dashed #d9cff8;border-radius:14px;padding:8px;margin:10px 0;text-align:left}
+  .shop img{width:56px;height:56px;object-fit:contain;flex:none}
+  .shop small{display:block;font-size:12px;opacity:.7}
+  .shop a{color:var(--navy);font-weight:700;font-size:15px}
+  .reward{background:var(--navy);color:var(--cream);border-radius:12px;padding:10px;margin:8px 0}
+  .reward code{display:inline-block;background:var(--cream);color:var(--navy);border-radius:8px;padding:4px 10px;font:700 18px monospace;letter-spacing:1px;margin:4px 0}
+  .reward.locked{background:#eee8fb;color:var(--navy)}
+  .points{font-size:14px;font-weight:600;margin:6px 0;min-height:1em}
+  #dpad{display:none;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,46px);gap:6px;flex:none}
+  #dpad button{background:rgba(185,167,245,.22);border:2px solid rgba(185,167,245,.6);color:var(--cream);border-radius:12px;font-size:20px;touch-action:none}
+  #dpad button:active{background:var(--lav);color:var(--navy)}
+  #dpad .up{grid-column:2;grid-row:1}#dpad .left{grid-column:1;grid-row:2}#dpad .down{grid-column:2;grid-row:2}#dpad .right{grid-column:3;grid-row:2}
+  @media (pointer:coarse){#dpad{display:grid}}
+  .hidden{display:none!important}
+  .toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--gold);color:var(--navy);font-weight:700;
+    padding:4px 12px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title">Petal <span>Snake</span></div>
+    <div class="stats">
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Best <b id="best">0</b></div>
+    </div>
+    <div class="stats">
+      <button class="iconbtn" id="pauseBtn" title="Pause" aria-label="Pause">❚❚</button>
+      <button class="iconbtn" id="fsBtn" title="Full screen" aria-label="Full screen">⛶</button>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="c" aria-label="Petal Snake game board"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <div class="overlay" id="startScreen">
+      <div class="card">
+        <h1>Petal <span>Snake</span></h1>
+        <p>Grow your brick vine by picking real Build Petals flowers. Don't hit the walls or your own vine!</p>
+        <div class="legend" id="legend"></div>
+        <button class="btn" id="startBtn">▶ Tap to Play</button>
+        <p class="hint">Arrow keys / WASD · Swipe on phones · Space to pause</p>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="pauseScreen">
+      <div class="card">
+        <h1>Paused</h1>
+        <button class="btn" id="resumeBtn">▶ Resume</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="overScreen">
+      <div class="card">
+        <p style="margin:0;font-weight:600">Your bouquet scored</p>
+        <div class="big" id="finalScore">0</div>
+        <p id="bestLine" class="hint"></p>
+        <div class="reward locked" id="reward"></div>
+        <div class="points hidden" id="points"></div>
+        <button class="btn ghost hidden" id="loginBtn">Log in to collect points</button>
+        <div class="shop" id="shop"></div>
+        <button class="btn" id="againBtn">↻ Play Again</button>
+        <a class="btn alt" href="https://www.buildpetals.com/product-page/mystery-flower" target="_top" id="mysteryLink">Shop Mystery Flowers</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="dpad">
+    <button class="up" data-d="up" aria-label="Up">▲</button>
+    <button class="left" data-d="left" aria-label="Left">◀</button>
+    <button class="down" data-d="down" aria-label="Down">▼</button>
+    <button class="right" data-d="right" aria-label="Right">▶</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — change the math here, nothing else needs editing
+   ========================================================= */
+const CONFIG = {
+  GRID: 18,                 // board is GRID x GRID cells
+  START_SPEED_MS: 150,      // time per move at start (lower = faster)
+  SPEED_STEP_MS: 3,         // faster by this much per flower
+  MIN_SPEED_MS: 72,         // fastest it can get
+  REWARD_SCORE: 300,        // score needed to unlock the discount code
+  REWARD_CODE: "PETALSNAKE",// create this coupon in Wix → Marketing → Coupons
+  REWARD_TEXT: "10% off your next order",
+  RARE_CHANCE: 0.12,        // chance a Phantom Rose (glow) spawns after each pick
+  RARE_LIFETIME_MS: 7000,
+  MYSTERY_CHANCE: 0.08,     // chance a Mystery "?" box spawns after each pick
+  MYSTERY_LIFETIME_MS: 6000,
+  MYSTERY_POINTS: [20, 80], // random bonus range
+};
+
+// Real Build Petals flowers (images served from the store's own Wix CDN)
+const WIX = id => `https://static.wixstatic.com/media/${id}/v1/fit/w_140,h_140,q_90/file.png`;
+const SHOP = slug => `https://www.buildpetals.com/product-page/${slug}`;
+const FLOWERS = [
+  { key:"bachelor", name:"The Bachelor's Button", pts:10, color:"#4f7cff", img:WIX("932726_529a6e1f244d477299ac1153feaf6885~mv2.png"), url:SHOP("the-bachelors-button"), weight:5 },
+  { key:"bubblegum",name:"The Bubblegum Rose",    pts:10, color:"#ff8fc2", img:WIX("252b4a_8de827b376194fb8b7d1b921691392b3~mv2.jpg"), url:SHOP("pin-krose"),            weight:5 },
+  { key:"hibiscus", name:"The Tropical Hibiscus", pts:15, color:"#ff6b4a", img:WIX("932726_95868791e85f4a47829f23d8a77a0f85~mv2.png"), url:SHOP("the-tropical-hibiscus"), weight:4 },
+  { key:"ladybird", name:"The Lady Bird",         pts:20, color:"#e8343f", img:WIX("932726_615d08dc2bed486a81b64eafd8d2ca8b~mv2.jpg"), url:SHOP("the-lady-bird"),         weight:3 },
+  { key:"fang",     name:"The Cosmic Fang",       pts:25, color:"#9b5cff", img:WIX("932726_f37005bfef004d9ea5619e8350edbf27~mv2.png"), url:SHOP("the-cosmic-fang"),       weight:2 },
+];
+const RARE = { key:"phantom", name:"The Phantom Rose", pts:50, color:"#9dffb0", img:WIX("932726_526efbcb09914eb0896acc123e2dc02b~mv2.png"), url:SHOP("the-phantom-rose"), rare:true };
+const ALL = [...FLOWERS, RARE];
+
+/* ---------- image loading (with drawn fallback) ---------- */
+ALL.forEach(f => { const im = new Image(); im.onload = () => f.ready = true; im.src = f.img; f.image = im; });
+
+const legend = document.getElementById("legend");
+ALL.forEach(f => {
+  const d = document.createElement("div");
+  d.innerHTML = `<img src="${f.img}" alt="">${f.pts}${f.rare ? " ✨" : ""}`;
+  d.title = f.name; legend.appendChild(d);
+});
+{ const d = document.createElement("div"); d.innerHTML = `<b style="width:26px;text-align:center;font-size:18px">?</b>bonus`; legend.appendChild(d); }
+
+/* ---------- storage (safe) ---------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+
+/* ---------- canvas sizing ---------- */
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const stage = document.getElementById("stage");
+let cell = 20, size = 360;
+function resize(){
+  const r = stage.getBoundingClientRect();
+  size = Math.max(180, Math.floor(Math.min(r.width, r.height) - 6));
+  cell = Math.floor(size / CONFIG.GRID); size = cell * CONFIG.GRID;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = size * dpr; cv.height = size * dpr;
+  cv.style.width = size + "px"; cv.style.height = size + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener("resize", resize);
+
+/* ---------- game state ---------- */
+const G = CONFIG.GRID;
+const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+let snake, dir, queue, items, score, picked, speed, state = "start", lastStep = 0, startTime = 0, best = store.get("bp_snake_best", 0);
+document.getElementById("best").textContent = best;
+
+function reset(){
+  const m = Math.floor(G/2);
+  snake = [[m-1,m],[m-2,m],[m-3,m]];
+  dir = "right"; queue = []; items = []; score = 0; picked = {}; speed = CONFIG.START_SPEED_MS;
+  setScore(0); spawn("normal");
+}
+function freeCell(){
+  for (let t = 0; t < 500; t++){
+    const x = Math.floor(Math.random()*G), y = Math.floor(Math.random()*G);
+    if (!snake.some(s => s[0]===x && s[1]===y) && !items.some(i => i.x===x && i.y===y)) return [x,y];
+  }
+  return null;
+}
+function pickWeighted(){
+  const tot = FLOWERS.reduce((a,f)=>a+f.weight,0); let r = Math.random()*tot;
+  for (const f of FLOWERS){ if ((r -= f.weight) < 0) return f; } return FLOWERS[0];
+}
+function spawn(kind){
+  const c = freeCell(); if (!c) return;
+  const now = performance.now();
+  if (kind === "normal") items.push({ x:c[0], y:c[1], f:pickWeighted(), kind, born:now });
+  if (kind === "rare")   items.push({ x:c[0], y:c[1], f:RARE, kind, born:now, life:CONFIG.RARE_LIFETIME_MS });
+  if (kind === "mystery")items.push({ x:c[0], y:c[1], f:null, kind, born:now, life:CONFIG.MYSTERY_LIFETIME_MS });
+}
+function setScore(v){ score = v; document.getElementById("score").textContent = v; }
+
+function setDir(d){
+  if (state !== "play") return;
+  const last = queue.length ? queue[queue.length-1] : dir;
+  const [ax,ay] = DIRS[last], [bx,by] = DIRS[d];
+  if (ax + bx === 0 && ay + by === 0) return;   // no instant reverse
+  if (d === last) return;
+  if (queue.length < 3) queue.push(d);
+}
+
+function step(){
+  if (queue.length) dir = queue.shift();
+  const [dx,dy] = DIRS[dir];
+  const head = [snake[0][0]+dx, snake[0][1]+dy];
+  if (head[0]<0 || head[1]<0 || head[0]>=G || head[1]>=G) return gameOver();
+  // tail moves away this step unless we eat, so ignore the last segment
+  if (snake.slice(0,-1).some(s => s[0]===head[0] && s[1]===head[1])) return gameOver();
+  snake.unshift(head);
+  const hit = items.findIndex(i => i.x===head[0] && i.y===head[1]);
+  if (hit >= 0){
+    const it = items.splice(hit,1)[0];
+    let gain;
+    if (it.kind === "mystery"){
+      const [a,b] = CONFIG.MYSTERY_POINTS; gain = Math.round((a + Math.random()*(b-a))/5)*5;
+      toast(`Mystery box! +${gain}`);
+    } else {
+      gain = it.f.pts; picked[it.f.key] = (picked[it.f.key]||0) + 1;
+      if (it.kind === "rare") toast(`✨ Phantom Rose! +${gain}`);
+    }
+    setScore(score + gain);
+    speed = Math.max(CONFIG.MIN_SPEED_MS, speed - CONFIG.SPEED_STEP_MS);
+    if (it.kind === "normal"){
+      spawn("normal");
+      if (!items.some(i=>i.kind==="rare")    && Math.random() < CONFIG.RARE_CHANCE)    spawn("rare");
+      if (!items.some(i=>i.kind==="mystery") && Math.random() < CONFIG.MYSTERY_CHANCE) spawn("mystery");
+    }
+  } else {
+    snake.pop();
+  }
+}
+
+/* ---------- drawing ---------- */
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawBoard(){
+  ctx.fillStyle = "#0d1638"; ctx.fillRect(0,0,size,size);
+  for (let y=0;y<G;y++) for (let x=0;x<G;x++){
+    if ((x+y)%2===0){ ctx.fillStyle = "rgba(143,199,255,.045)"; ctx.fillRect(x*cell,y*cell,cell,cell); }
+  }
+  ctx.strokeStyle = "rgba(143,199,255,.10)"; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i=1;i<G;i++){ ctx.moveTo(i*cell+.5,0); ctx.lineTo(i*cell+.5,size); ctx.moveTo(0,i*cell+.5); ctx.lineTo(size,i*cell+.5); }
+  ctx.stroke();
+}
+function drawBrick(x,y,isHead,i){
+  const px = x*cell, py = y*cell, p = Math.max(1, cell*.06);
+  const shade = i % 2 ? "#3aa553" : "#43b85e";
+  ctx.fillStyle = isHead ? "#2f9a4a" : shade;
+  rr(px+p, py+p, cell-2*p, cell-2*p, cell*.18); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,.18)"; rr(px+p, py+cell*.72, cell-2*p, cell*.28-p, cell*.12); ctx.fill();
+  // stud
+  ctx.fillStyle = isHead ? "#38ad55" : "#55c96f";
+  ctx.beginPath(); ctx.arc(px+cell/2, py+cell/2-cell*.04, cell*.22, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = Math.max(1,cell*.05); ctx.stroke();
+  if (isHead){
+    const [dx,dy] = DIRS[dir];
+    const ex = px+cell/2 + dx*cell*.18, ey = py+cell/2 + dy*cell*.18;
+    const ox = dy*cell*.17, oy = dx*cell*.17;
+    for (const s of [-1,1]){
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex+ox*s, ey+oy*s, cell*.12, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#101a42"; ctx.beginPath(); ctx.arc(ex+ox*s+dx*cell*.04, ey+oy*s+dy*cell*.04, cell*.06, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+function drawFallbackFlower(cx,cy,r,color){
+  ctx.fillStyle = color;
+  for (let k=0;k<5;k++){ const a = k*Math.PI*2/5; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*r*.5, cy+Math.sin(a)*r*.5, r*.42, 0, Math.PI*2); ctx.fill(); }
+  ctx.fillStyle = "#ffd166"; ctx.beginPath(); ctx.arc(cx,cy,r*.3,0,Math.PI*2); ctx.fill();
+}
+function drawItem(it, now){
+  const px = it.x*cell, py = it.y*cell, cx = px+cell/2, cy = py+cell/2;
+  const bob = Math.sin((now - it.born)/260) * cell*.05;
+  let alpha = 1;
+  if (it.life){ const left = it.life - (now - it.born); if (left < 1800) alpha = (Math.floor(left/150)%2) ? .35 : 1; }
+  ctx.save(); ctx.globalAlpha = alpha;
+  if (it.kind === "mystery"){
+    ctx.fillStyle = "#ffd166"; rr(px+cell*.08, py+cell*.08+bob, cell*.84, cell*.84, cell*.18); ctx.fill();
+    ctx.fillStyle = "#101a42"; ctx.font = `700 ${cell*.62}px Fredoka, sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("?", cx, cy+bob+cell*.03);
+  } else {
+    if (it.kind === "rare"){ ctx.shadowColor = "#9dffb0"; ctx.shadowBlur = cell*.9 + Math.sin(now/180)*cell*.3; }
+    ctx.fillStyle = it.kind === "rare" ? "rgba(157,255,176,.25)" : "rgba(255,246,229,.92)";
+    ctx.beginPath(); ctx.arc(cx, cy+bob, cell*.5, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    const s = cell*1.0;
+    if (it.f.ready) ctx.drawImage(it.f.image, cx - s/2, cy - s/2 + bob, s, s);
+    else drawFallbackFlower(cx, cy+bob, cell*.42, it.f.color);
+  }
+  ctx.restore();
+}
+function draw(now = performance.now()){
+  if (!snake) return;
+  drawBoard();
+  items.forEach(it => drawItem(it, now));
+  for (let i = snake.length-1; i >= 0; i--) drawBrick(snake[i][0], snake[i][1], i===0, i);
+}
+
+/* ---------- loop ---------- */
+function loop(now){
+  if (state === "play"){
+    items = items.filter(it => !it.life || now - it.born < it.life);
+    if (now - lastStep >= speed){ lastStep = now; step(); }
+  }
+  draw(now);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- screens ---------- */
+const $ = id => document.getElementById(id);
+function show(id){ ["startScreen","pauseScreen","overScreen"].forEach(s => $(s).classList.toggle("hidden", s !== id)); }
+function start(){ reset(); state = "play"; startTime = Date.now(); lastStep = performance.now(); show(null); }
+function pause(){ if (state === "play"){ state = "pause"; show("pauseScreen"); } }
+function resume(){ if (state === "pause"){ state = "play"; lastStep = performance.now(); show(null); } }
+let toastT; function toast(t){ const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>el.classList.remove("on"), 1300); }
+
+function gameOver(){
+  state = "over";
+  const isBest = score > best;
+  if (isBest){ best = score; store.set("bp_snake_best", best); $("best").textContent = best; }
+  $("finalScore").textContent = score;
+  $("bestLine").textContent = isBest && score > 0 ? "🎉 New personal best!" : `Personal best: ${best}`;
+
+  // reward
+  const rw = $("reward");
+  if (score >= CONFIG.REWARD_SCORE){
+    rw.className = "reward";
+    rw.innerHTML = `<div style="font-weight:700">You unlocked ${CONFIG.REWARD_TEXT}!</div><code id="code">${CONFIG.REWARD_CODE}</code><br><button class="btn" style="padding:6px 14px;font-size:14px" id="copyBtn">Copy code</button>`;
+    $("copyBtn").onclick = () => { try { navigator.clipboard.writeText(CONFIG.REWARD_CODE); $("copyBtn").textContent = "Copied!"; } catch(e){} };
+  } else {
+    rw.className = "reward locked";
+    rw.innerHTML = `Score <b>${CONFIG.REWARD_SCORE}</b> to unlock <b>${CONFIG.REWARD_TEXT}</b> · ${CONFIG.REWARD_SCORE - score} to go!`;
+  }
+
+  // shop the flower they picked most (or a random one)
+  let topKey = Object.keys(picked).sort((a,b)=>picked[b]-picked[a])[0];
+  const f = ALL.find(x => x.key === topKey) || FLOWERS[Math.floor(Math.random()*FLOWERS.length)];
+  const n = picked[f.key] || 0;
+  $("shop").innerHTML = `<img src="${f.img}" alt="${f.name}"><div><small>${n ? `You picked ${n}× — your favourite this round` : "Flower of the round"}</small><a href="${f.url}" target="_top">Shop ${f.name} →</a></div>`;
+
+  // loyalty points hand-off to the Wix page
+  $("loginBtn").classList.add("hidden");
+  const pts = $("points");
+  if (window.parent !== window){
+    pts.classList.remove("hidden"); pts.textContent = "Checking loyalty points…";
+    send({ type:"gameOver", game:"petal-snake", score, picked, durationMs: Date.now() - startTime });
+    clearTimeout(window._ptsT); window._ptsT = setTimeout(() => { if (pts.textContent.startsWith("Checking")) pts.classList.add("hidden"); }, 5000);
+  } else pts.classList.add("hidden");
+
+  show("overScreen");
+}
+
+/* ---------- messaging with the Wix page ---------- */
+function send(msg){ try { window.parent.postMessage(Object.assign({ source:"buildpetals-arcade" }, msg), "*"); } catch(e){} }
+window.addEventListener("message", e => {
+  const m = e.data; if (!m || m.source !== "buildpetals-site") return;
+  const pts = $("points");
+  if (m.type === "pointsResult"){
+    pts.classList.remove("hidden");
+    const msgs = {
+      awarded:  `🌸 +${m.points} loyalty points added!${m.balance != null ? ` Balance: ${m.balance}` : ""}`,
+      already:  `You've already collected today's game points. Come back tomorrow!`,
+      belowMin: `Score ${m.minScore} to earn loyalty points.`,
+      login:    `Members earn loyalty points for playing.`,
+      error:    `Couldn't add points right now — try again later.`,
+    };
+    pts.textContent = msgs[m.status] || "";
+    $("loginBtn").classList.toggle("hidden", m.status !== "login");
+  }
+});
+$("loginBtn").onclick = () => send({ type:"login", game:"petal-snake", score, picked });
+
+/* ---------- input ---------- */
+const KEYS = { ArrowUp:"up", ArrowDown:"down", ArrowLeft:"left", ArrowRight:"right", w:"up", s:"down", a:"left", d:"right", W:"up", S:"down", A:"left", D:"right" };
+window.addEventListener("keydown", e => {
+  if (KEYS[e.key]){ e.preventDefault(); if (state === "start" || state === "over") return; setDir(KEYS[e.key]); }
+  else if (e.key === " " || e.key === "p" || e.key === "P" || e.key === "Enter"){
+    e.preventDefault();
+    if (state === "play") pause(); else if (state === "pause") resume(); else start();
+  }
+});
+let tx = null, ty = null;
+stage.addEventListener("touchstart", e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; }, { passive:true });
+stage.addEventListener("touchmove", e => {
+  if (state === "play") e.preventDefault();
+  if (tx === null) return;
+  const t = e.touches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) > 22){
+    setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+    tx = t.clientX; ty = t.clientY;
+  }
+}, { passive:false });
+stage.addEventListener("touchend", () => { tx = ty = null; });
+document.querySelectorAll("#dpad button").forEach(b => b.addEventListener("pointerdown", e => { e.preventDefault(); setDir(b.dataset.d); }));
+
+$("startBtn").onclick = start; $("againBtn").onclick = start; $("resumeBtn").onclick = resume;
+$("pauseBtn").onclick = () => state === "play" ? pause() : resume();
+$("fsBtn").onclick = () => {
+  const el = document.documentElement;
+  if (document.fullscreenElement) return document.exitFullscreen();
+  if (document.fullscreenEnabled && el.requestFullscreen) el.requestFullscreen().catch(() => window.open(location.href, "_blank"));
+  else window.open(location.href, "_blank");
+};
+document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+window.addEventListener("blur", pause);
+
+reset(); state = "start"; resize(); requestAnimationFrame(loop);
+send({ type:"ready", game:"petal-snake" });
+</script>
+</body>
+</html>
