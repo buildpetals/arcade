@@ -478,11 +478,9 @@ function gameOver(won){
 
   $("loginBtn").classList.add("hidden");
   const pts = $("points");
-  if (window.parent !== window){
-    pts.classList.remove("hidden"); pts.textContent = "Checking loyalty points…";
-    send({ type:"gameOver", game:"petal-snake", score, levelsCleared: cleared, durationMs: Date.now() - startTime });
-    clearTimeout(window._ptsT); window._ptsT = setTimeout(() => { if (pts.textContent.startsWith("Checking")) pts.classList.add("hidden"); }, 6000);
-  } else pts.classList.add("hidden");
+  // Points text only appears if the Wix page answers (loyalty connected); otherwise nothing shows.
+  pts.classList.add("hidden");
+  if (window.parent !== window) send({ type:"gameOver", game:"petal-snake", score, levelsCleared: cleared, durationMs: Date.now() - startTime });
   show("overScreen");
 }
 
