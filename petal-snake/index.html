@@ -152,25 +152,40 @@ const CONFIG = {
 };
 
 // Real Build Petals flowers (images served from the store's own Wix CDN)
-const WIX = id => `https://static.wixstatic.com/media/${id}/v1/fit/w_140,h_140,q_90/file.png`;
+const WIX = id => `https://static.wixstatic.com/media/${id}/v1/fit/w_260,h_260,q_90/file.png`;
 const SHOP = slug => `https://www.buildpetals.com/product-page/${slug}`;
 const FLOWERS = [
-  { key:"bachelor", name:"The Bachelor's Button", pts:10, color:"#4f7cff", img:WIX("932726_529a6e1f244d477299ac1153feaf6885~mv2.png"), url:SHOP("the-bachelors-button"), weight:5 },
-  { key:"bubblegum",name:"The Bubblegum Rose",    pts:10, color:"#ff8fc2", img:WIX("252b4a_8de827b376194fb8b7d1b921691392b3~mv2.jpg"), url:SHOP("pin-krose"),            weight:5 },
-  { key:"hibiscus", name:"The Tropical Hibiscus", pts:15, color:"#ff6b4a", img:WIX("932726_95868791e85f4a47829f23d8a77a0f85~mv2.png"), url:SHOP("the-tropical-hibiscus"), weight:4 },
-  { key:"ladybird", name:"The Lady Bird",         pts:20, color:"#e8343f", img:WIX("932726_615d08dc2bed486a81b64eafd8d2ca8b~mv2.jpg"), url:SHOP("the-lady-bird"),         weight:3 },
-  { key:"fang",     name:"The Cosmic Fang",       pts:25, color:"#9b5cff", img:WIX("932726_f37005bfef004d9ea5619e8350edbf27~mv2.png"), url:SHOP("the-cosmic-fang"),       weight:2 },
+  { key:"bachelor", name:"The Bachelor's Button", pts:10, color:"#4f7cff", img:WIX("932726_529a6e1f244d477299ac1153feaf6885~mv2.png"), url:SHOP("the-bachelors-button"), weight:5, crop:[.15,.03,.70] },
+  { key:"bubblegum",name:"The Bubblegum Rose",    pts:10, color:"#ff8fc2", img:WIX("252b4a_8de827b376194fb8b7d1b921691392b3~mv2.jpg"), url:SHOP("pin-krose"),            weight:5, crop:[.28,.04,.52] },
+  { key:"hibiscus", name:"The Tropical Hibiscus", pts:15, color:"#ff6b4a", img:WIX("932726_95868791e85f4a47829f23d8a77a0f85~mv2.png"), url:SHOP("the-tropical-hibiscus"), weight:4, crop:[.07,.0,.86] },
+  { key:"ladybird", name:"The Lady Bird",         pts:20, color:"#e8343f", img:WIX("932726_615d08dc2bed486a81b64eafd8d2ca8b~mv2.jpg"), url:SHOP("the-lady-bird"),         weight:3, crop:[.15,.0,.70] },
+  { key:"fang",     name:"The Cosmic Fang",       pts:25, color:"#9b5cff", img:WIX("932726_f37005bfef004d9ea5619e8350edbf27~mv2.png"), url:SHOP("the-cosmic-fang"),       weight:2, crop:[.10,.02,.80] },
 ];
-const RARE = { key:"phantom", name:"The Phantom Rose", pts:50, color:"#9dffb0", img:WIX("932726_526efbcb09914eb0896acc123e2dc02b~mv2.png"), url:SHOP("the-phantom-rose"), rare:true };
+const RARE = { key:"phantom", name:"The Phantom Rose", pts:50, color:"#9dffb0", img:WIX("932726_526efbcb09914eb0896acc123e2dc02b~mv2.png"), url:SHOP("the-phantom-rose"), rare:true, crop:[.20,.02,.74] };
 const ALL = [...FLOWERS, RARE];
 
 /* ---------- image loading (with drawn fallback) ---------- */
+// draw the cropped flower head into a circle (photos have white backgrounds)
+function drawHead(c, f, cx, cy, r){
+  c.save(); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI*2); c.closePath();
+  c.fillStyle = "#fff"; c.fill(); c.clip();
+  const W = f.image.naturalWidth, H = f.image.naturalHeight, [x,y,w] = f.crop;
+  c.drawImage(f.image, x*W, y*H, w*W, w*W, cx-r, cy-r, r*2, r*2);
+  c.restore();
+}
+function thumb(f, px){
+  const c = document.createElement("canvas"), d = Math.min(window.devicePixelRatio||1, 2);
+  c.width = c.height = px*d; c.style.width = c.style.height = px+"px"; c.style.flex = "none";
+  const paint = () => { const x = c.getContext("2d"); x.setTransform(d,0,0,d,0,0); drawHead(x, f, px/2, px/2, px/2); };
+  if (f.ready) paint(); else f.image.addEventListener("load", paint);
+  return c;
+}
 ALL.forEach(f => { const im = new Image(); im.onload = () => f.ready = true; im.src = f.img; f.image = im; });
 
 const legend = document.getElementById("legend");
 ALL.forEach(f => {
   const d = document.createElement("div");
-  d.innerHTML = `<img src="${f.img}" alt="">${f.pts}${f.rare ? " ✨" : ""}`;
+  d.appendChild(thumb(f, 28)); d.append(`${f.pts}${f.rare ? " ✨" : ""}`);
   d.title = f.name; legend.appendChild(d);
 });
 { const d = document.createElement("div"); d.innerHTML = `<b style="width:26px;text-align:center;font-size:18px">?</b>bonus`; legend.appendChild(d); }
@@ -318,12 +333,11 @@ function drawItem(it, now){
     ctx.fillText("?", cx, cy+bob+cell*.03);
   } else {
     if (it.kind === "rare"){ ctx.shadowColor = "#9dffb0"; ctx.shadowBlur = cell*.9 + Math.sin(now/180)*cell*.3; }
-    ctx.fillStyle = it.kind === "rare" ? "rgba(157,255,176,.25)" : "rgba(255,246,229,.92)";
-    ctx.beginPath(); ctx.arc(cx, cy+bob, cell*.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = it.kind === "rare" ? "#9dffb0" : it.f.color;
+    ctx.beginPath(); ctx.arc(cx, cy+bob, cell*.54, 0, Math.PI*2); ctx.fill();
     ctx.shadowBlur = 0;
-    const s = cell*1.0;
-    if (it.f.ready) ctx.drawImage(it.f.image, cx - s/2, cy - s/2 + bob, s, s);
-    else drawFallbackFlower(cx, cy+bob, cell*.42, it.f.color);
+    if (it.f.ready) drawHead(ctx, it.f, cx, cy+bob, cell*.47);
+    else { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, cy+bob, cell*.47, 0, Math.PI*2); ctx.fill(); drawFallbackFlower(cx, cy+bob, cell*.36, it.f.color); }
   }
   ctx.restore();
 }
@@ -374,7 +388,8 @@ function gameOver(){
   let topKey = Object.keys(picked).sort((a,b)=>picked[b]-picked[a])[0];
   const f = ALL.find(x => x.key === topKey) || FLOWERS[Math.floor(Math.random()*FLOWERS.length)];
   const n = picked[f.key] || 0;
-  $("shop").innerHTML = `<img src="${f.img}" alt="${f.name}"><div><small>${n ? `You picked ${n}× — your favourite this round` : "Flower of the round"}</small><a href="${f.url}" target="_top">Shop ${f.name} →</a></div>`;
+  $("shop").innerHTML = `<span id="shopThumb"></span><div><small>${n ? `You picked ${n}× — your favourite this round` : "Flower of the round"}</small><a href="${f.url}" target="_top">Shop ${f.name} →</a></div>`;
+  $("shopThumb").appendChild(thumb(f, 56));
 
   // loyalty points hand-off to the Wix page
   $("loginBtn").classList.add("hidden");
