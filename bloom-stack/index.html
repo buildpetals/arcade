@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bloom Stack · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* BLOOM STACK — tap to drop the sliding brick. Stack high enough to plant a flower on top. */
+const W = 360, H = 480, BH = 24, BASE_W = 170, GROUND = H - 40;
+const GOAL = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18];
+const COLORS = [["#ff8fc2", "#ffc2df", "#ffa6cf"], ["#8fc7ff", "#c4e0ff", "#a8d4ff"], ["#b9a7f5", "#ddd3fb", "#cbbdf8"], ["#ffd166", "#ffe6a3", "#ffdb85"], ["#6fd98a", "#b8f0c5", "#8fe3a4"]];
+let tower, mover, falling, cam, camTarget, done, flowerKey, failAt, doneAt;
+
+function color(i) { return COLORS[i % COLORS.length]; }
+function newMover(kit) {
+  const top = tower[tower.length - 1];
+  const speed = Arcade.lerpLevel(kit.level, 130, 290) + tower.length * 3;
+  const fromLeft = tower.length % 2 === 1;
+  mover = { x: fromLeft ? -top.w : W, y: top.y - BH, w: top.w, v: fromLeft ? speed : -speed, ci: tower.length };
+}
+function drop(kit) {
+  if (!mover || done) return;
+  const top = tower[tower.length - 1];
+  const left = Math.max(mover.x, top.x), right = Math.min(mover.x + mover.w, top.x + top.w), overlap = right - left;
+  if (overlap <= 2) { falling.push({ x: mover.x, y: mover.y, w: mover.w, vy: 0, ci: mover.ci }); mover = null; kit.toast("Missed!"); failAt = kit.now + 450; return; }
+  let x = left, w = overlap, perfect = Math.abs(mover.x - top.x) < 5;
+  if (perfect) { x = top.x; w = Math.min(BASE_W, top.w + 6); kit.add(25); kit.toast("Perfect! +25"); }
+  else {
+    if (mover.x < top.x) falling.push({ x: mover.x, y: mover.y, w: top.x - mover.x, vy: 0, ci: mover.ci });
+    else falling.push({ x: right, y: mover.y, w: mover.x + mover.w - right, vy: 0, ci: mover.ci });
+  }
+  tower.push({ x, y: mover.y, w, ci: mover.ci });
+  kit.add(10);
+  camTarget = Math.max(0, (GROUND - (tower.length + 1) * BH) < 180 ? 180 - (GROUND - (tower.length + 1) * BH) : 0);
+  mover = null;
+  if (tower.length - 1 >= kit.goal()) { done = true; flowerKey = Arcade.pick(["rose", "tulip", "daisy", "bluebell", "sunflower"]); doneAt = kit.now + 650; return; }
+  kit.collect(); newMover(kit);
+}
+
+Arcade.run({
+  id: "bloom-stack",
+  title: ["BLOOM", "STACK"],
+  blurb: "Tap to drop each sliding brick onto the tower. Anything hanging over the edge falls off. Stack high enough to plant a flower on top! <b>10 levels</b>.",
+  hint: "Tap / click / Space to drop · P to pause",
+  legend: [{ sprite: "sunflower", label: "brick +10" }, { sprite: "mystery", label: "perfect +25" }],
+  width: W, height: H,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `stack ${GOAL[l - 1]} bricks · faster slides`,
+  setup(level, kit) {
+    tower = [{ x: (W - BASE_W) / 2, y: GROUND - BH, w: BASE_W, ci: 0 }];
+    falling = []; cam = camTarget = 0; done = false; flowerKey = null; failAt = doneAt = 0; newMover(kit);
+  },
+  update(dt, kit) {
+    if (failAt && kit.now > failAt) { failAt = 0; return kit.fail(); }
+    if (doneAt && kit.now > doneAt) { doneAt = 0; return kit.collect(); }
+    if (mover) {
+      mover.x += mover.v * dt;
+      if (mover.v > 0 && mover.x > W - mover.w * 0.25) mover.v *= -1;
+      if (mover.v < 0 && mover.x < -mover.w * 0.75) mover.v *= -1;
+    }
+    for (const f of falling) { f.vy += 900 * dt; f.y += f.vy * dt; }
+    falling = falling.filter((f) => f.y < H + cam + 60);
+    cam += (camTarget - cam) * Math.min(1, dt * 6);
+  },
+  pointerDown(x, y, kit) { drop(kit); },
+  key(k, kit) { if (k === " " || k === "Enter" || k === "ArrowDown") { drop(kit); return true; } return false; },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.save(); ctx.translate(0, cam);
+    ctx.fillStyle = "#2b3a7a"; ctx.fillRect(0, GROUND, W, H);
+    ctx.fillStyle = "#3a4b8f"; for (let x = 0; x < W; x += 24) ctx.fillRect(x + 2, GROUND + 4, 20, 6);
+    tower.forEach((b, i) => { const c = i === 0 ? ["#a0612f", "#c98450", "#b97440"] : color(b.ci); Arcade.brick(ctx, b.x, b.y, b.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(b.w / 28))); });
+    for (const f of falling) { const c = color(f.ci); Arcade.brick(ctx, f.x, f.y, f.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(f.w / 28))); }
+    if (mover) { const c = color(mover.ci); Arcade.brick(ctx, mover.x, mover.y, mover.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(mover.w / 28))); }
+    if (flowerKey) { const t = tower[tower.length - 1]; Arcade.drawSprite(ctx, flowerKey, t.x + t.w / 2 - 22, t.y - 44, 44); }
+    ctx.restore();
+    ctx.fillStyle = "rgba(255,246,229,.85)"; ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "left";
+    ctx.fillText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22);
+  },
+});
+</script>
+</body>
+</html>
