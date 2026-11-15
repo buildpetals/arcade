@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Garden Match · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* GARDEN MATCH — swap neighbouring flowers to line up 3 or more of a kind. */
+const W = 360, H = 480, NC = 7, NR = 8, T = 46, OX = (W - NC * T) / 2, OY = 66;
+const GOAL = [21, 25, 29, 33, 37, 42, 47, 52, 57, 63];
+const MOVES = [15, 15, 16, 16, 17, 17, 18, 18, 19, 20];
+const ALL = ["rose", "tulip", "daisy", "bluebell", "sunflower", "phantom"];
+let grid, types, moves, sel, down, phase, phaseT, swapA, swapB, fx, combo, grabbed;
+
+const rnd = () => Math.floor(Math.random() * types);
+function swapCells(a, b) { const t = grid[a.r][a.c]; grid[a.r][a.c] = grid[b.r][b.c]; grid[b.r][b.c] = t; }
+function matches() {
+  const hit = new Set();
+  for (let r = 0; r < NR; r++) {
+    let run = 1;
+    for (let c = 1; c <= NC; c++) {
+      if (c < NC && grid[r][c].t === grid[r][c - 1].t) run++;
+      else { if (run >= 3) for (let k = c - run; k < c; k++) hit.add(r * NC + k); run = 1; }
+    }
+  }
+  for (let c = 0; c < NC; c++) {
+    let run = 1;
+    for (let r = 1; r <= NR; r++) {
+      if (r < NR && grid[r][c].t === grid[r - 1][c].t) run++;
+      else { if (run >= 3) for (let k = r - run; k < r; k++) hit.add(k * NC + c); run = 1; }
+    }
+  }
+  return hit;
+}
+function hasMove() {
+  for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) for (const [dr, dc] of [[0, 1], [1, 0]]) {
+    const r2 = r + dr, c2 = c + dc;
+    if (r2 >= NR || c2 >= NC) continue;
+    swapCells({ r, c }, { r: r2, c: c2 }); const ok = matches().size > 0; swapCells({ r, c }, { r: r2, c: c2 });
+    if (ok) return true;
+  }
+  return false;
+}
+function makeBoard() {
+  for (let tries = 0; tries < 40; tries++) {
+    grid = [];
+    for (let r = 0; r < NR; r++) {
+      grid.push([]);
+      for (let c = 0; c < NC; c++) {
+        let t;
+        do { t = rnd(); } while ((c >= 2 && grid[r][c - 1].t === t && grid[r][c - 2].t === t) || (r >= 2 && grid[r - 1][c].t === t && grid[r - 2][c].t === t));
+        grid[r].push({ t, oy: 0, pop: 0 });
+      }
+    }
+    if (hasMove()) return;
+  }
+}
+function shuffle() {
+  const ts = grid.flat().map((x) => x.t);
+  for (let tries = 0; tries < 60; tries++) {
+    ts.sort(() => Math.random() - 0.5);
+    grid.forEach((row, r) => row.forEach((x, c) => { x.t = ts[r * NC + c]; x.oy = 0; x.pop = 0; }));
+    if (!matches().size && hasMove()) return;
+  }
+  makeBoard();
+}
+function trySwap(a, b) {
+  if (phase !== "idle" || !a || !b || b.r < 0 || b.r >= NR || b.c < 0 || b.c >= NC) return;
+  if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) return;
+  swapA = a; swapB = b; phase = "swap"; phaseT = 0; sel = null; grabbed = false;
+}
+function startClear(kit) {
+  const hit = matches();
+  if (!hit.size) return settle(kit);
+  combo++;
+  let sx = 0, sy = 0;
+  for (const i of hit) { const r = Math.floor(i / NC), c = i % NC; grid[r][c].pop = 0.001; sx += OX + c * T + T / 2; sy += OY + r * T + T / 2; }
+  const pts = hit.size * 10 * combo;
+  kit.add(pts);
+  fx.push({ x: sx / hit.size, y: sy / hit.size, t: kit.now, txt: (combo > 1 ? "x" + combo + " " : "") + "+" + pts });
+  if (combo === 3) kit.toast("🌸 Combo x3!");
+  phase = "clear"; phaseT = 0;
+  kit.collect(hit.size);
+}
+function collapse() {
+  for (let c = 0; c < NC; c++) {
+    let r = NR - 1;
+    for (let rr = NR - 1; rr >= 0; rr--) {
+      const tile = grid[rr][c];
+      if (tile.pop) continue;
+      tile.oy += (r - rr) * T; grid[r][c] = tile; r--;
+    }
+    const empty = r + 1;
+    for (; r >= 0; r--) grid[r][c] = { t: rnd(), oy: empty * T, pop: 0 };
+  }
+}
+function settle(kit) {
+  phase = "idle"; combo = 0;
+  if (kit.got < kit.goal() && moves <= 0) { kit.fail(); return; }
+  if (!hasMove()) { shuffle(); kit.toast("No moves left, shuffled!"); }
+}
+function cellAt(x, y) {
+  const c = Math.floor((x - OX) / T), r = Math.floor((y - OY) / T);
+  return r >= 0 && r < NR && c >= 0 && c < NC ? { r, c } : null;
+}
+
+Arcade.run({
+  id: "garden-match",
+  title: ["GARDEN", "MATCH"],
+  blurb: "Swap two neighbouring flowers to line up 3 or more of a kind. Collect enough flowers before your moves run out. Clear all <b>10 levels</b>.",
+  hint: "Drag a flower onto its neighbour, or tap two · arrow keys move, Space picks up · P to pause",
+  legend: [{ sprite: "rose", label: "match 3+" }, { sprite: "daisy", label: "cascades = combos" }, { sprite: "phantom", label: "from level 5" }],
+  width: W, height: H,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `collect ${GOAL[l - 1]} flowers in ${MOVES[l - 1]} moves${l === 5 ? " · a 6th flower joins!" : ""}`,
+  setup(level, kit) {
+    types = level >= 5 ? 6 : 5; moves = MOVES[level - 1];
+    sel = null; down = null; grabbed = false; fx = []; combo = 0; phase = "idle"; phaseT = 0;
+    makeBoard();
+  },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 800);
+    if (phase === "swap" || phase === "unswap") {
+      phaseT += dt / 0.14;
+      if (phaseT < 1) return;
+      swapCells(swapA, swapB);
+      if (phase === "unswap") { phase = "idle"; return; }
+      if (matches().size) { moves--; combo = 0; startClear(kit); }
+      else { phase = "unswap"; phaseT = 0; }
+    } else if (phase === "clear") {
+      phaseT += dt / 0.2;
+      for (const row of grid) for (const x of row) if (x.pop) x.pop = Math.min(1, phaseT);
+      if (phaseT >= 1) { collapse(); phase = "fall"; }
+    } else if (phase === "fall") {
+      let moving = false;
+      for (const row of grid) for (const x of row) if (x.oy > 0) { x.oy = Math.max(0, x.oy - 900 * dt); moving = true; }
+      if (!moving) startClear(kit);
+    }
+  },
+  pointerDown(x, y, kit) {
+    if (phase !== "idle") return;
+    const p = cellAt(x, y);
+    if (!p) { sel = null; return; }
+    if (sel && Math.abs(sel.r - p.r) + Math.abs(sel.c - p.c) === 1) { trySwap(sel, p); down = null; return; }
+    sel = p; down = { p, x, y };
+  },
+  pointerMove(x, y, kit, isDown) {
+    if (!down || !isDown || phase !== "idle") return;
+    const dx = x - down.x, dy = y - down.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    const p = down.p;
+    trySwap(p, Math.abs(dx) > Math.abs(dy) ? { r: p.r, c: p.c + Math.sign(dx) } : { r: p.r + Math.sign(dy), c: p.c });
+    down = null;
+  },
+  pointerUp() { down = null; },
+  key(k, kit) {
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
+    if (d) {
+      const cur = sel || { r: 3, c: 3 };
+      if (grabbed) trySwap(cur, { r: cur.r + d[0], c: cur.c + d[1] });
+      else sel = { r: Math.max(0, Math.min(NR - 1, cur.r + d[0])), c: Math.max(0, Math.min(NC - 1, cur.c + d[1])) };
+      return true;
+    }
+    if (k === " " || k === "x" || k === "X") { if (!sel) sel = { r: 3, c: 3 }; grabbed = !grabbed; return true; }
+    return false;
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = "left"; ctx.fillStyle = "#b9a7f5";
+    ctx.fillText("MOVES", OX, 24);
+    ctx.fillStyle = moves <= 3 ? "#ff8fc2" : "#ffd166"; ctx.font = '18px "Press Start 2P", monospace';
+    ctx.fillText(String(moves), OX, 50);
+    ctx.textAlign = "right"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#b9a7f5";
+    ctx.fillText("FLOWERS", OX + NC * T, 24);
+    ctx.fillStyle = "#ffd166"; ctx.font = '18px "Press Start 2P", monospace';
+    ctx.fillText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), OX + NC * T, 50);
+
+    ctx.fillStyle = "#101d4a"; ctx.fillRect(OX - 4, OY - 4, NC * T + 8, NR * T + 8);
+    for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) {
+      ctx.fillStyle = (r + c) % 2 ? "rgba(143,199,255,.05)" : "rgba(143,199,255,.10)";
+      ctx.fillRect(OX + c * T + 2, OY + r * T + 2, T - 4, T - 4);
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(OX - 4, OY - 4, NC * T + 8, NR * T + 8); ctx.clip();
+    const swapping = phase === "swap" || phase === "unswap", k = Math.min(1, phaseT);
+    for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) {
+      const tile = grid[r][c];
+      let x = OX + c * T, y = OY + r * T - tile.oy;
+      if (swapping && swapA.r === r && swapA.c === c) { x += (swapB.c - c) * T * k; y += (swapB.r - r) * T * k; }
+      else if (swapping && swapB.r === r && swapB.c === c) { x += (swapA.c - c) * T * k; y += (swapA.r - r) * T * k; }
+      const size = 34 * (tile.pop ? 1 - tile.pop * 0.7 : 1);
+      Arcade.drawSprite(ctx, ALL[tile.t], x + (T - size) / 2, y + (T - size) / 2, size, tile.pop ? { alpha: 1 - tile.pop } : null);
+    }
+    ctx.restore();
+    if (sel && phase === "idle") {
+      ctx.strokeStyle = grabbed ? "#ffd166" : "#b9a7f5"; ctx.lineWidth = 3;
+      ctx.strokeRect(OX + sel.c * T + 2, OY + sel.r * T + 2, T - 4, T - 4);
+    }
+    ctx.textAlign = "center"; ctx.font = '11px "Press Start 2P", monospace';
+    for (const f of fx) { const t = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - t; ctx.fillStyle = "#ffd166"; ctx.fillText(f.txt, f.x, f.y - t * 30); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
