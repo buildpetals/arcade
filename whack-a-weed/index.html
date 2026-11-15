@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Whack-a-Weed · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* WHACK-A-WEED — tap the weeds before they escape. Don't tap the flowers! */
+const W = 360, H = 480;
+const GOAL = [8, 10, 12, 14, 15, 16, 18, 20, 22, 25];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+let pots, pops, fx, spawnIn;
+Arcade.variant("weed", "goldWeed", { g: "#ffd166", G: "#e0a400" }, "Golden Weed");
+
+function makePots(level) {
+  const cols = 3, rows = level >= 5 ? 4 : 3;
+  const pw = 86, ph = 34, gx = (W - cols * pw) / (cols + 1), top = rows === 3 ? 120 : 70, gy = rows === 3 ? 120 : 100;
+  pots = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) pots.push({ x: gx + c * (pw + gx), y: top + r * gy, w: pw, h: ph, item: null });
+}
+function spawn(kit) {
+  const free = pots.filter((p) => !p.item); if (!free.length) return;
+  const p = Arcade.pick(free), lv = kit.level, r = Math.random();
+  const flowerChance = L(lv, 0.12, 0.34), goldChance = 0.06;
+  const kind = r < flowerChance ? "flower" : r < flowerChance + goldChance ? "gold" : "weed";
+  const sprite = kind === "flower" ? Arcade.pick(["rose", "tulip", "daisy", "bluebell", "sunflower"]) : kind === "gold" ? "goldWeed" : "weed";
+  p.item = { kind, sprite, born: kit.now, life: L(lv, 1500, 700) * (kind === "gold" ? 0.7 : 1), hit: 0 };
+}
+
+Arcade.run({
+  id: "whack-a-weed",
+  title: ["WHACK-A", "WEED"],
+  blurb: "Weeds are popping up in the garden! Tap them before they escape (from level 3 an escaped weed costs a heart), but leave the flowers alone. Clear all <b>10 levels</b>.",
+  hint: "Tap or click weeds · Space to pause",
+  legend: [{ sprite: "weed", label: "+10" }, { sprite: "goldWeed", label: "+40" }, { sprite: "rose", label: "don't tap!" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `whack ${GOAL[l - 1]} weeds${l === 5 ? " · more pots!" : ""}`,
+  setup(level, kit) { makePots(level); pops = []; fx = []; spawnIn = 0.6; },
+  update(dt, kit) {
+    spawnIn -= dt;
+    if (spawnIn <= 0) { spawn(kit); spawnIn = L(kit.level, 1.0, 0.42) * Arcade.rand(0.75, 1.25); }
+    for (const p of pots) {
+      const it = p.item; if (!it) continue;
+      if (it.hit && kit.now - it.hit > 220) { p.item = null; continue; }
+      if (!it.hit && kit.now - it.born > it.life) {
+        p.item = null;
+        if (it.kind === "weed") { fx.push({ x: p.x + p.w / 2, y: p.y - 30, t: kit.now, txt: "missed!", c: "#ff8fc2" }); if (kit.level >= 3) kit.loseLife(); }
+      }
+    }
+    fx = fx.filter((f) => kit.now - f.t < 700);
+  },
+  pointerDown(x, y, kit) {
+    for (const p of pots) {
+      const it = p.item; if (!it || it.hit) continue;
+      if (x >= p.x - 6 && x <= p.x + p.w + 6 && y >= p.y - 64 && y <= p.y + p.h) {
+        it.hit = kit.now;
+        if (it.kind === "flower") { fx.push({ x: p.x + p.w / 2, y: p.y - 40, t: kit.now, txt: "not the flowers!", c: "#ff8fc2" }); kit.loseLife(); }
+        else { const g = it.kind === "gold" ? 40 : 10; kit.add(g); fx.push({ x: p.x + p.w / 2, y: p.y - 40, t: kit.now, txt: "+" + g, c: "#ffd166" }); kit.collect(); }
+        return;
+      }
+    }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    for (const p of pots) {
+      const it = p.item;
+      if (it) {
+        const age = kit.now - it.born, rise = Math.min(1, age / 140), sink = it.hit ? Math.min(1, (kit.now - it.hit) / 200) : 0;
+        const left = it.life - age, warn = !it.hit && left < 300;
+        const sz = 54, off = (1 - rise + sink) * sz * 0.9;
+        ctx.save(); ctx.beginPath(); ctx.rect(p.x - 10, p.y - 80, p.w + 20, 80 + 4); ctx.clip();
+        Arcade.drawSprite(ctx, it.sprite, p.x + (p.w - sz) / 2, p.y - sz + 6 + off, sz, { alpha: warn ? 0.6 : 1 });
+        ctx.restore();
+      }
+      Arcade.brick(ctx, p.x, p.y, p.w, p.h, "#a0612f", "#c98450", "#b97440", 3);
+      ctx.fillStyle = "#5c2e0e"; ctx.fillRect(p.x + 6, p.y + 2, p.w - 12, 5);
+    }
+    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y - k * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
