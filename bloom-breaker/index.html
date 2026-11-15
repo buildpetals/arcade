@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bloom Breaker · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* BLOOM BREAKER — bounce the ladybug off your brick paddle and break every flower brick. */
+const W = 360, H = 480, COLS = 7, BW = 46, BH = 18, GAP = 4, TOPY = 46, R = 8, PY = H - 44;
+const X0 = (W - (COLS * BW + (COLS - 1) * GAP)) / 2;
+const ROWS = [3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
+const PAL = [["#ff8fc2", "#ffd6ea", "#ffb3d5"], ["#ff5a5f", "#ffb3b5", "#ff8a8d"], ["#ffd166", "#fff0c7", "#ffe08f"],
+  ["#4f7cff", "#bfd0ff", "#8fa9ff"], ["#6fd24a", "#c9f2b8", "#9fe486"], ["#b9a7f5", "#e6defc", "#d4c8fa"], ["#8fc7ff", "#d9ecff", "#b8dcff"]];
+const FLOWERS = ["rose", "tulip", "daisy", "bluebell", "sunflower"];
+let paddle, ball, bricks, fx, targetX, launchAt;
+
+const speedOf = (l) => Arcade.lerpLevel(l, 238, 322);
+const padW = (l) => Arcade.lerpLevel(l, 88, 62);
+
+function serve(kit) { ball = { x: paddle.x, y: PY - R - 1, vx: 0, vy: 0, stuck: true }; launchAt = kit.now + 1400; }
+function launch(kit) {
+  if (!ball || !ball.stuck) return;
+  const a = Arcade.rand(-0.45, 0.45), sp = speedOf(kit.level);
+  ball.vx = sp * Math.sin(a); ball.vy = -sp * Math.cos(a); ball.stuck = false;
+}
+
+Arcade.run({
+  id: "bloom-breaker",
+  title: ["BLOOM", "BREAKER"],
+  blurb: "Bounce the ladybug off your brick paddle and break every brick. Flower bricks are worth extra. Clear all <b>10 levels</b>.",
+  hint: "Move the pointer or drag, or use ← → keys · tap or ↑ to launch · Space to pause",
+  legend: [{ sprite: "ladybug", label: "ball" }, { sprite: "rose", label: "flower brick +25" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => ROWS[l - 1] * COLS,
+  goalLabel: (l) => `break all ${ROWS[l - 1] * COLS} bricks${l >= 4 ? " · grey bricks take 2 hits" : ""}`,
+  setup(level, kit) {
+    paddle = { x: W / 2, w: padW(level) }; targetX = null; fx = []; bricks = [];
+    const toughP = level >= 4 ? Arcade.lerpLevel(level, 0.12, 0.34) : 0;
+    for (let r = 0; r < ROWS[level - 1]; r++) for (let c = 0; c < COLS; c++) {
+      const tough = Math.random() < toughP;
+      bricks.push({ x: X0 + c * (BW + GAP), y: TOPY + r * (BH + GAP), hp: tough ? 2 : 1, col: PAL[(r + level) % PAL.length],
+        flower: Math.random() < 0.14 ? Arcade.pick(FLOWERS) : null });
+    }
+    serve(kit);
+  },
+  update(dt, kit) {
+    const keys = Arcade.keys, ps = 380;
+    if (keys.ArrowLeft || keys.a || keys.A) { paddle.x -= ps * dt; targetX = null; }
+    if (keys.ArrowRight || keys.d || keys.D) { paddle.x += ps * dt; targetX = null; }
+    if (targetX != null) paddle.x += (targetX - paddle.x) * Math.min(1, dt * 16);
+    paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, paddle.x));
+
+    if (ball.stuck) { ball.x = paddle.x; ball.y = PY - R - 1; if (kit.now > launchAt) launch(kit); }
+    else {
+      const steps = Math.max(1, Math.ceil((Math.hypot(ball.vx, ball.vy) * dt) / 4));
+      for (let i = 0; i < steps; i++) {
+        ball.x += (ball.vx * dt) / steps; ball.y += (ball.vy * dt) / steps;
+        if (ball.x < R) { ball.x = R; ball.vx = Math.abs(ball.vx); }
+        if (ball.x > W - R) { ball.x = W - R; ball.vx = -Math.abs(ball.vx); }
+        if (ball.y < R + 4) { ball.y = R + 4; ball.vy = Math.abs(ball.vy); }
+        if (ball.vy > 0 && ball.y + R >= PY && ball.y + R <= PY + 16 && Math.abs(ball.x - paddle.x) <= paddle.w / 2 + R * 0.6) {
+          const h = Math.max(-1, Math.min(1, (ball.x - paddle.x) / (paddle.w / 2))), a = h * 1.05, s = speedOf(kit.level);
+          ball.vx = s * Math.sin(a); ball.vy = -s * Math.cos(a); ball.y = PY - R;
+        }
+        for (const b of bricks) {
+          if (b.dead) continue;
+          const cx = b.x + BW / 2, cy = b.y + BH / 2, dx = ball.x - cx, dy = ball.y - cy;
+          const px = BW / 2 + R - Math.abs(dx), py = BH / 2 + R - Math.abs(dy);
+          if (px <= 0 || py <= 0) continue;
+          if (px < py) { const sx = Math.sign(dx) || 1; ball.vx = sx * Math.abs(ball.vx); ball.x += sx * px; }
+          else { const sy = Math.sign(dy) || 1; ball.vy = sy * Math.abs(ball.vy); ball.y += sy * py; }
+          b.hp--;
+          if (b.hp <= 0) {
+            b.dead = true; const v = b.flower ? 25 : 10; kit.add(v);
+            fx.push({ x: cx, y: cy, t: kit.now, txt: "+" + v, c: b.flower ? "#ffd166" : "#fff6e5" });
+            if (b.flower) kit.toast("🌸 Flower brick! +25");
+            kit.collect(); if (kit.state !== "play") return;
+          } else fx.push({ x: cx, y: cy, t: kit.now, txt: "crack", c: "#b9a7f5" });
+          break;
+        }
+        if (ball.y - R > H) { kit.loseLife(); if (kit.state === "play") serve(kit); return; }
+      }
+      if (Math.abs(ball.vy) < 60) ball.vy = 60 * (Math.sign(ball.vy) || -1); // no endless sideways bouncing
+      if (Math.abs(ball.vx) < 35) ball.vx = 35 * (Math.sign(ball.vx) || (Math.random() < 0.5 ? -1 : 1)); // or straight up-and-down
+    }
+    fx = fx.filter((f) => kit.now - f.t < 650);
+  },
+  pointerDown(x, y, kit) { targetX = x; launch(kit); },
+  pointerMove(x, y, kit) { targetX = x; },
+  key(k, kit) { if ((k === "ArrowUp" || k === "w" || k === "W") && ball.stuck) { launch(kit); return true; } return false; },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    for (const b of bricks) {
+      if (b.dead) continue;
+      const tough = b.hp > 1;
+      Arcade.brick(ctx, b.x, b.y, BW, BH, tough ? "#4a5582" : b.col[0], tough ? "#7d87b5" : b.col[1], tough ? "#646ea0" : b.col[2], 3);
+      if (b.flower) Arcade.drawSprite(ctx, b.flower, b.x + BW / 2 - 8, b.y + 1, 16);
+    }
+    Arcade.brick(ctx, paddle.x - paddle.w / 2, PY, paddle.w, 14, "#b9a7f5", "#e6defc", "#d4c8fa", Math.max(2, Math.round(paddle.w / 18)));
+    ctx.save(); ctx.translate(ball.x, ball.y);
+    if (!ball.stuck) ctx.rotate(Math.atan2(ball.vy, ball.vx) + Math.PI / 2);
+    Arcade.drawSprite(ctx, "ladybug", -R - 2, -R - 2, 2 * R + 4); ctx.restore();
+    ctx.textAlign = "center";
+    if (ball.stuck && kit.state === "play") {
+      ctx.font = '11px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; ctx.fillText("TAP TO LAUNCH", W / 2, PY - 40);
+    }
+    ctx.font = '9px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 650; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y - k * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
