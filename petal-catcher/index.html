@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Catcher · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* PETAL CATCHER — slide the vase to catch falling flowers. Dodge the beetles! */
+const W = 360, H = 480, VASE_W = 74, VASE_Y = H - 64;
+const GOAL = [10, 12, 14, 15, 16, 18, 20, 22, 24, 26];
+const FLOWERS = [["rose", 10], ["tulip", 10], ["daisy", 15], ["bluebell", 20], ["sunflower", 25]];
+let vase, targetX, drops, fx, spawnIn, combo;
+
+function spawn(kit) {
+  const lv = kit.level, r = Math.random(), bugChance = Arcade.lerpLevel(lv, 0.14, 0.34);
+  let d;
+  if (r < bugChance) d = { s: "bug", kind: "bug" };
+  else if (r < bugChance + 0.04) d = { s: "phantom", kind: "flower", pts: 50 };
+  else if (r < bugChance + 0.08) d = { s: "mystery", kind: "mystery" };
+  else { const f = Arcade.pick(FLOWERS); d = { s: f[0], kind: "flower", pts: f[1] }; }
+  d.x = Arcade.rand(10, W - 46); d.y = -40; d.size = 36;
+  d.vy = Arcade.lerpLevel(lv, 105, 240) * Arcade.rand(0.85, 1.2);
+  d.vx = lv >= 6 ? Arcade.rand(-30, 30) : 0;
+  d.spin = Arcade.rand(-1, 1);
+  drops.push(d);
+}
+
+Arcade.run({
+  id: "petal-catcher",
+  title: ["PETAL", "CATCHER"],
+  blurb: "Flowers are falling! Slide the vase to catch them and build a bouquet. Dodge the beetles. Clear all <b>10 levels</b>.",
+  hint: "Drag / move the pointer, or use ← → keys · Space to pause",
+  legend: [{ sprite: "rose", label: "catch" }, { sprite: "phantom", label: "50 ✨" }, { sprite: "mystery", label: "bonus" }, { sprite: "bug", label: "dodge!" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `catch ${GOAL[l - 1]} flowers${l >= 6 ? " · windy!" : ""}`,
+  setup(level, kit) { vase = { x: (W - VASE_W) / 2 }; targetX = null; drops = []; fx = []; spawnIn = 0.5; combo = 0; },
+  update(dt, kit) {
+    const keys = Arcade.keys, sp = 340;
+    if (keys.ArrowLeft || keys.a || keys.A) { vase.x -= sp * dt; targetX = null; }
+    if (keys.ArrowRight || keys.d || keys.D) { vase.x += sp * dt; targetX = null; }
+    if (targetX != null) vase.x += (targetX - VASE_W / 2 - vase.x) * Math.min(1, dt * 14);
+    vase.x = Math.max(0, Math.min(W - VASE_W, vase.x));
+
+    spawnIn -= dt;
+    if (spawnIn <= 0) { spawn(kit); spawnIn = Arcade.lerpLevel(kit.level, 0.95, 0.42) * Arcade.rand(0.7, 1.3); }
+    for (const d of drops) {
+      d.y += d.vy * dt; d.x += d.vx * dt;
+      if (d.x < 0 || d.x > W - d.size) d.vx *= -1;
+      const cx = d.x + d.size / 2, by = d.y + d.size;
+      if (!d.done && by >= VASE_Y + 6 && by <= VASE_Y + 30 && cx > vase.x + 4 && cx < vase.x + VASE_W - 4) {
+        d.done = true;
+        if (d.kind === "bug") { combo = 0; fx.push({ x: cx, y: VASE_Y - 10, t: kit.now, txt: "yikes!", c: "#ff8fc2" }); kit.loseLife(); }
+        else if (d.kind === "mystery") { const g = Math.round(Arcade.rand(20, 80) / 5) * 5; kit.add(g); fx.push({ x: cx, y: VASE_Y - 10, t: kit.now, txt: "+" + g, c: "#ffd166" }); }
+        else {
+          combo++; const bonus = combo >= 5 ? 5 : 0;
+          kit.add(d.pts + bonus); fx.push({ x: cx, y: VASE_Y - 10, t: kit.now, txt: "+" + (d.pts + bonus) + (combo >= 5 ? " combo" : ""), c: "#ffd166" });
+          if (d.s === "phantom") kit.toast("✨ Phantom Rose! +50");
+          kit.collect(); if (kit.state !== "play") return;
+        }
+      }
+      if (!d.done && d.y > H) { d.done = true; if (d.kind === "flower") combo = 0; }
+    }
+    drops = drops.filter((d) => !d.done);
+    fx = fx.filter((f) => kit.now - f.t < 700);
+  },
+  pointerDown(x) { targetX = x; },
+  pointerMove(x, y, kit, down) { targetX = x; },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.fillStyle = "#2b3a7a"; ctx.fillRect(0, H - 22, W, 22);
+    for (const d of drops) {
+      ctx.save(); ctx.translate(d.x + d.size / 2, d.y + d.size / 2); ctx.rotate(Math.sin(kit.now / 300 + d.spin * 3) * 0.25 * d.spin);
+      Arcade.drawSprite(ctx, d.s, -d.size / 2, -d.size / 2, d.size); ctx.restore();
+    }
+    // vase: brick pot with a rim
+    const x = vase.x;
+    Arcade.brick(ctx, x - 6, VASE_Y, VASE_W + 12, 16, "#8f7ae6", "#b9a7f5", "#a593ee", 4);
+    Arcade.brick(ctx, x, VASE_Y + 14, VASE_W, 30, "#6b56c9", "#8f7ae6", "#7d68d6", 3);
+    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y - k * 26); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
