@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Pairs · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* PETAL PAIRS — flip two cards, find matching flowers before the clock runs out. */
+const W = 360, H = 480;
+const PAIRS = [3, 4, 6, 6, 8, 8, 10, 10, 12, 12];
+const TIME = [30, 35, 45, 38, 55, 48, 65, 58, 75, 68];       // seconds per level
+const COLS = { 3: 3, 4: 4, 6: 4, 8: 4, 10: 5, 12: 6 };
+Arcade.variant("rose", "blueRose", { p: "#8fc7ff", P: "#4f7cff", w: "#e3f0ff" }, "Blue Rose");
+Arcade.variant("rose", "goldRose", { p: "#ffd166", P: "#e0a400", w: "#fff1c2" }, "Gold Rose");
+Arcade.variant("tulip", "purpleTulip", { r: "#b9a7f5", R: "#7a5fd6", w: "#ece6ff" }, "Purple Tulip");
+Arcade.variant("tulip", "orangeTulip", { r: "#ff9f43", R: "#d26a00", w: "#ffd9b0" }, "Orange Tulip");
+Arcade.variant("daisy", "pinkDaisy", { w: "#ffc2df", W: "#ff8fc2" }, "Pink Daisy");
+const FACES = ["rose", "tulip", "daisy", "bluebell", "sunflower", "phantom", "ladybug", "blueRose", "goldRose", "purpleTulip", "orangeTulip", "pinkDaisy"];
+let cards, open, lockUntil, timeLeft, peekUntil, pops;
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function deal(level, kit) {
+  const n = PAIRS[level - 1], cols = COLS[n], rows = (n * 2) / cols;
+  const faces = shuffle(FACES.slice()).slice(0, n);
+  const deck = shuffle(faces.concat(faces));
+  const pad = 14, gap = 8, top = 16;
+  const cw = Math.min((W - pad * 2 - gap * (cols - 1)) / cols, 96);
+  const ch = Math.min(cw * 1.25, (H - top * 2 - gap * (rows - 1)) / rows);
+  const ox = (W - (cw * cols + gap * (cols - 1))) / 2, oy = (H - (ch * rows + gap * (rows - 1))) / 2;
+  cards = deck.map((face, i) => ({ face, x: ox + (i % cols) * (cw + gap), y: oy + Math.floor(i / cols) * (ch + gap), w: cw, h: ch, up: false, matched: false, flip: 0 }));
+  open = []; lockUntil = 0; pops = [];
+  peekUntil = kit.now + (level <= 4 ? 1400 : 800);
+}
+
+Arcade.run({
+  id: "petal-pairs",
+  title: ["PETAL", "PAIRS"],
+  blurb: "Flip two cards at a time and find every matching flower before the clock runs out. Clear all <b>10 levels</b>!",
+  hint: "Tap or click cards · Space to pause",
+  legend: [{ sprite: "rose", label: "match +20" }, { sprite: "mystery", label: "time bonus" }],
+  width: W, height: H,
+  goal: (l) => PAIRS[l - 1],
+  goalLabel: (l) => `find ${PAIRS[l - 1]} pairs in ${TIME[l - 1]} seconds`,
+  setup(level, kit) { deal(level, kit); timeLeft = TIME[level - 1]; kit.setInfo("⏱ <b>" + timeLeft + "</b>"); },
+  update(dt, kit) {
+    for (const c of cards) { const target = c.up || c.matched || kit.now < peekUntil ? 1 : 0; c.flip += (target - c.flip) * Math.min(1, dt * 14); }
+    pops = pops.filter((p) => kit.now - p.t < 700);
+    if (kit.now < peekUntil) return;
+    timeLeft -= dt;
+    kit.setInfo("⏱ <b>" + Math.max(0, Math.ceil(timeLeft)) + "</b>");
+    if (timeLeft <= 0) { kit.toast("Time's up!"); kit.fail(); return; }
+    if (open.length === 2 && kit.now >= lockUntil) {
+      const [a, b] = open;
+      if (a.face !== b.face) { a.up = b.up = false; }
+      open = [];
+    }
+  },
+  pointerDown(x, y, kit) {
+    if (kit.now < peekUntil || open.length >= 2) return;
+    const c = cards.find((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
+    if (!c || c.up || c.matched) return;
+    c.up = true; open.push(c);
+    if (open.length === 2) {
+      const [a, b] = open;
+      if (a.face === b.face) {
+        a.matched = b.matched = true; open = [];
+        kit.add(20); pops.push({ x: b.x + b.w / 2, y: b.y, t: kit.now, txt: "+20" });
+        if (cards.every((c) => c.matched)) { const bonus = Math.ceil(timeLeft) * 2; kit.add(bonus); kit.toast(`Time bonus +${bonus}`); }
+        kit.collect();
+      } else lockUntil = kit.now + 650;
+    }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    for (const c of cards) {
+      const s = Math.abs(Math.cos(c.flip * Math.PI)), showFace = c.flip > 0.5;
+      const w = c.w * Math.max(0.04, s), x = c.x + (c.w - w) / 2;
+      ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.fillRect(x + 2, c.y + 4, w, c.h);
+      if (showFace) {
+        ctx.fillStyle = c.matched ? "#e8f8ea" : "#fff6e5"; ctx.fillRect(x, c.y, w, c.h);
+        ctx.strokeStyle = c.matched ? "#43b85e" : "#b9a7f5"; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, c.y + 1.5, w - 3, c.h - 3);
+        const sz = Math.min(c.w, c.h) * 0.7;
+        if (s > 0.2) Arcade.drawSprite(ctx, c.face, c.x + (c.w - sz * s) / 2, c.y + (c.h - sz) / 2, sz * s, { alpha: c.matched ? 0.75 : 1 });
+      } else {
+        ctx.fillStyle = "#2b3a7a"; ctx.fillRect(x, c.y, w, c.h);
+        ctx.strokeStyle = "#8f7ae6"; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, c.y + 1.5, w - 3, c.h - 3);
+        if (s > 0.3) {
+          ctx.fillStyle = "#b9a7f5"; ctx.font = `${Math.round(c.h * 0.32)}px "Press Start 2P", monospace`;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", c.x + c.w / 2, c.y + c.h / 2 + 2);
+        }
+      }
+    }
+    ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "center";
+    for (const p of pops) { const k = (kit.now - p.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; ctx.fillText(p.txt, p.x, p.y - k * 24); }
+    ctx.globalAlpha = 1;
+    if (kit.state === "play" && kit.now < peekUntil) {
+      ctx.fillStyle = "rgba(16,26,66,.75)"; ctx.fillRect(0, H / 2 - 22, W, 44);
+      ctx.fillStyle = "#fff6e5"; ctx.font = '12px "Press Start 2P", monospace'; ctx.textBaseline = "middle"; ctx.fillText("MEMORIZE!", W / 2, H / 2);
+    }
+  },
+});
+</script>
+</body>
+</html>
