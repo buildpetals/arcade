@@ -4,18 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Build Petals Arcade</title>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<script src="kit/arcade-kit.js"></script>
 <style>
-  body{margin:0;min-height:100vh;background:#101a42;color:#fff6e5;font-family:Fredoka,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;box-sizing:border-box;
-    background-image:linear-gradient(rgba(143,199,255,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(143,199,255,.1) 1px,transparent 1px);background-size:24px 24px}
-  h1{margin:0;font-size:36px}h1 span{color:#b9a7f5}
-  a.game{display:block;background:#fff6e5;color:#101a42;text-decoration:none;border-radius:16px;padding:16px 22px;font-size:22px;font-weight:700;box-shadow:0 5px 0 #8f7ae6;min-width:240px;text-align:center}
-  small{opacity:.7}
+  html,body{overflow:auto!important;height:auto;min-height:100%}
+  .lobby{width:100%;max-width:640px;padding:18px 14px 28px;text-align:center}
+  .lobby h1{font:400 clamp(16px,5vw,24px)/1.3 "Press Start 2P",monospace;margin:6px 0 6px}
+  .lobby h1 span{color:var(--lav)}
+  .lobby .sub{margin:0 0 18px;color:#d9e2f5;font-size:15px}
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--cream);color:var(--navy);border-radius:16px;padding:14px 8px 12px;text-decoration:none;box-shadow:0 5px 0 var(--lav2);position:relative}
+  .tile:active{transform:translateY(3px);box-shadow:0 2px 0 var(--lav2)}
+  .tile b{font:400 9px/1.5 "Press Start 2P",monospace}
+  .tile small{font-size:12px;font-weight:600;color:#5a6390}
+  .tile .tag{position:absolute;top:8px;right:8px;background:var(--gold);border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px}
+  .tile.soon{background:rgba(255,246,229,.08);color:#9db8e8;box-shadow:none;border:2px dashed rgba(185,167,245,.5)}
+  .tile.soon b{color:#c9d8f5} .tile.soon small{color:#9db8e8} .tile.soon canvas{opacity:.45}
+  .foot{margin-top:18px;font-size:13px;color:#9db8e8}
+  .foot a{color:var(--sky)}
+  @media (max-width:380px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
-  <h1>Build Petals <span>Arcade</span></h1>
-  <a class="game" href="petal-snake/">🌸 Petal Snake</a>
-  <small>More flower games coming soon · <a href="https://www.buildpetals.com" style="color:#8fc7ff" target="_top">buildpetals.com</a></small>
+<div class="lobby">
+  <h1>PETALS <span>ARCADE</span></h1>
+  <p class="sub">Pick a game. Every game has 10 levels.</p>
+  <div class="tiles" id="tiles"></div>
+  <p class="foot">New games added regularly · <a href="https://www.buildpetals.com" target="_top">buildpetals.com</a></p>
+</div>
+<script>
+const GAMES = [
+  { slug: "petal-snake", name: "PETAL SNAKE", sprite: "rose", note: "Grow the vine" },
+  { slug: "petal-pairs", name: "PETAL PAIRS", sprite: "tulip", note: "Match the cards" },
+  { slug: "whack-a-weed", name: "WHACK-A-WEED", sprite: "weed", note: "Tap the weeds" },
+  { slug: "bloom-stack", name: "BLOOM STACK", sprite: "sunflower", note: "Stack the bricks" },
+  { slug: "petal-catcher", name: "PETAL CATCHER", sprite: "daisy", note: "Catch the flowers" },
+  { slug: null, name: "BEE LINE", sprite: "bee", note: "Coming soon" },
+  { slug: null, name: "BLOOM BREAKER", sprite: "ladybug", note: "Coming soon" },
+  { slug: null, name: "BOUQUET BLOCKS", sprite: "bluebell", note: "Coming soon" },
+  { slug: null, name: "GARDEN MATCH", sprite: "phantom", note: "Coming soon" },
+];
+const tiles = document.getElementById("tiles");
+for (const g of GAMES) {
+  const el = document.createElement(g.slug ? "a" : "div");
+  el.className = "tile" + (g.slug ? "" : " soon");
+  if (g.slug) { el.href = g.slug + "/"; el.target = "_self"; }
+  el.appendChild(Arcade.thumb(g.sprite, 48));
+  el.insertAdjacentHTML("beforeend", `<b>${g.name}</b><small>${g.note}</small>`);
+  if (g.slug) {
+    const lvl = Arcade.store.get("bp_" + g.slug + "_bestlvl", 0);
+    if (lvl) el.insertAdjacentHTML("beforeend", `<span class="tag">${lvl}/10</span>`);
+  }
+  tiles.appendChild(el);
+}
+</script>
 </body>
 </html>
