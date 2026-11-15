@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bee Line · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* BEE LINE — tap to flap. Fly the bee through the gaps in the flower stems. */
+const W = 360, H = 480, GROUND = H - 28, BEE = 30, STEM_W = 50, BEE_X = 86;
+const GOAL = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const HEADS = ["rose", "tulip", "daisy", "sunflower", "bluebell"];
+const STEM = ["#2b8a44", "#3a9e55", "#4cc36a"];
+let bee, stems, pollen, fx, started, safeUntil;
+
+const gapOf = (l) => Arcade.lerpLevel(l, 172, 122);
+const speedOf = (l) => Arcade.lerpLevel(l, 112, 184);
+const spaceOf = (l) => Arcade.lerpLevel(l, 215, 170);
+
+function addStem(kit, x) {
+  const g = gapOf(kit.level), m = 44, gy = Arcade.rand(m, GROUND - m - g);
+  const s = { x, gy, base: gy, g, head: Arcade.pick(HEADS), passed: false, amp: 0, ph: Arcade.rand(0, 6.28) };
+  if (kit.level >= 7) s.amp = Math.max(0, Math.min(Arcade.lerpLevel(kit.level, 16, 34), gy - 20, GROUND - 20 - (gy + g)));
+  stems.push(s);
+  if (Math.random() < 0.6) pollen.push({ x: x + STEM_W / 2 - 12, stem: s, s: Math.random() < 0.15 ? "phantom" : "daisy" });
+}
+
+function flap() { started = true; bee.vy = -285; }
+
+function hit(kit) {
+  if (kit.now < safeUntil) { if (bee.y + BEE >= GROUND) bee.vy = -260; return; }
+  kit.loseLife();
+  if (kit.state !== "play") return;
+  safeUntil = kit.now + 1600; started = false;
+  bee.y = H / 2 - BEE / 2; bee.vy = 0;
+  stems = stems.filter((s) => s.x > BEE_X + 150 || s.x + STEM_W < BEE_X - 10); // clear the way ahead
+  pollen = pollen.filter((p) => stems.includes(p.stem));
+}
+
+function column(ctx, x, y, h, fromBottom) {
+  if (h <= 0) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, STEM_W, h); ctx.clip();
+  const bh = 16;
+  if (fromBottom) for (let yy = y + h - bh, i = 0; yy > y - bh; yy -= bh, i++) Arcade.brick(ctx, x, yy, STEM_W, bh, STEM[i % 3], "#6fd24a", "#5fbf5f", 2);
+  else for (let yy = y, i = 0; yy < y + h; yy += bh, i++) Arcade.brick(ctx, x, yy, STEM_W, bh, STEM[i % 3], "#6fd24a", "#5fbf5f", 2);
+  ctx.restore();
+}
+
+Arcade.run({
+  id: "bee-line",
+  title: ["BEE", "LINE"],
+  blurb: "Tap to flap! Fly the bee through the gaps between the flower stems and grab pollen on the way. Clear all <b>10 levels</b>.",
+  hint: "Tap, click, or press ↑ / Space to flap · P to pause",
+  legend: [{ sprite: "bee", label: "you" }, { sprite: "daisy", label: "+5" }, { sprite: "phantom", label: "+25 ✨" }, { sprite: "tulip", label: "fly the gaps" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `fly through ${GOAL[l - 1]} gaps${l >= 7 ? " · swaying stems!" : ""}`,
+  setup(level, kit) {
+    bee = { x: BEE_X, y: H / 2 - BEE / 2, vy: 0 };
+    stems = []; pollen = []; fx = []; started = false; safeUntil = 0;
+  },
+  update(dt, kit) {
+    if (!started) { bee.y = H / 2 - BEE / 2 + Math.sin(kit.now / 260) * 6; return; }
+    bee.vy = Math.min(bee.vy + 980 * dt, 520); bee.y += bee.vy * dt;
+    if (bee.y < 0) { bee.y = 0; bee.vy = 0; }
+    if (bee.y + BEE > GROUND) { bee.y = GROUND - BEE; hit(kit); return; }
+
+    const sp = speedOf(kit.level), gap = spaceOf(kit.level);
+    for (const s of stems) { s.x -= sp * dt; if (s.amp) s.gy = s.base + Math.sin(kit.now / 700 + s.ph) * s.amp; }
+    for (const p of pollen) p.x -= sp * dt;
+    const last = stems[stems.length - 1];
+    if (!last) addStem(kit, W + 20); else if (last.x < W - gap) addStem(kit, last.x + gap);
+
+    const bx = bee.x + 6, by = bee.y + 7, bw = BEE - 12, bh = BEE - 13;
+    for (const s of stems) {
+      if (!s.passed && s.x + STEM_W < bee.x) {
+        s.passed = true; kit.add(10); fx.push({ x: bee.x + BEE / 2, y: bee.y - 6, t: kit.now, txt: "+10" });
+        kit.collect(); if (kit.state !== "play") return;
+      }
+      if (kit.now < safeUntil) continue;
+      if (bx + bw > s.x + 3 && bx < s.x + STEM_W - 3 && (by < s.gy || by + bh > s.gy + s.g)) { hit(kit); return; }
+    }
+    for (const p of pollen) {
+      const py = p.stem.gy + p.stem.g / 2 - 12;
+      if (!p.got && bx + bw > p.x && bx < p.x + 24 && by + bh > py && by < py + 24) {
+        p.got = true; const v = p.s === "phantom" ? 25 : 5; kit.add(v);
+        fx.push({ x: p.x + 12, y: py, t: kit.now, txt: "+" + v });
+        if (p.s === "phantom") kit.toast("✨ Phantom Rose! +25");
+      }
+    }
+    stems = stems.filter((s) => s.x > -STEM_W - 10);
+    pollen = pollen.filter((p) => !p.got && p.x > -30);
+    fx = fx.filter((f) => kit.now - f.t < 700);
+  },
+  pointerDown(x, y, kit) { flap(); },
+  key(k, kit) { if (k === " " || k === "ArrowUp" || k === "w" || k === "W") { flap(); return true; } return false; },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    for (const s of stems) {
+      column(ctx, s.x, 0, s.gy, true);
+      const top = s.gy + s.g;
+      column(ctx, s.x, top, GROUND - top, false);
+      Arcade.drawSprite(ctx, s.head, s.x + (STEM_W - 34) / 2, top, 34);
+    }
+    for (const p of pollen) Arcade.drawSprite(ctx, p.s, p.x, p.stem.gy + p.stem.g / 2 - 12 + Math.sin(kit.now / 200 + p.x / 40) * 3, 24);
+    for (let x = 0; x < W; x += 30) Arcade.brick(ctx, x, GROUND, 30, H - GROUND, "#8a4b1f", "#a8642e", "#9a5626", 2);
+
+    ctx.save(); ctx.translate(bee.x + BEE / 2, bee.y + BEE / 2);
+    ctx.rotate(started ? Math.max(-0.45, Math.min(0.7, bee.vy / 650)) : 0);
+    const blink = kit.now < safeUntil && Math.floor(kit.now / 110) % 2 === 0;
+    Arcade.drawSprite(ctx, "bee", -BEE / 2, -BEE / 2, BEE, blink ? { alpha: 0.35 } : null);
+    ctx.restore();
+
+    ctx.textAlign = "center";
+    if (!started && kit.state === "play") {
+      ctx.font = '12px "Press Start 2P", monospace'; ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillText("TAP TO FLAP", W / 2 + 2, H * 0.3 + 2);
+      ctx.fillStyle = "#fff6e5"; ctx.fillText("TAP TO FLAP", W / 2, H * 0.3);
+    }
+    ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; ctx.fillText(f.txt, f.x, f.y - k * 24); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
