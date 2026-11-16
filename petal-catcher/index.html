@@ -81,7 +81,7 @@ Arcade.run({
     Arcade.brick(ctx, x - 6, VASE_Y, VASE_W + 12, 16, "#8f7ae6", "#b9a7f5", "#a593ee", 4);
     Arcade.brick(ctx, x, VASE_Y + 14, VASE_W, 30, "#6b56c9", "#8f7ae6", "#7d68d6", 3);
     ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
-    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y - k * 26); }
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; (Arcade.ink(ctx), ctx.strokeText(f.txt, f.x, f.y - k * 26), ctx.fillText(f.txt, f.x, f.y - k * 26)); }
     ctx.globalAlpha = 1;
   },
 });
