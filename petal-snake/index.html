@@ -78,9 +78,9 @@ Arcade.run({
   id: "petal-snake",
   title: ["PETAL", "SNAKE"],
   blurb: "Grow your brick vine and pick flowers. Clear all <b>10 levels</b> to finish the bouquet. Don't hit walls, bricks or your own vine!",
-  hint: "Arrow keys / WASD · Swipe on phones · Space to pause",
+  hint: "Phones: swipe anywhere to steer · Arrow keys / WASD · Space to pause",
   legend: [{ sprite: "rose", label: "10" }, { sprite: "tulip", label: "10" }, { sprite: "daisy", label: "15" }, { sprite: "bluebell", label: "20" }, { sprite: "sunflower", label: "25" }, { sprite: "phantom", label: "50 ✨" }, { sprite: "mystery", label: "bonus" }],
-  width: G * CELL, height: G * CELL, dpad: true,
+  width: G * CELL, height: G * CELL, dpad: false, swipeAnywhere: true,
   goal: (l) => GOAL[l - 1],
   goalLabel: (l) => `pick ${GOAL[l - 1]} flowers${l >= 3 ? " · watch the bricks" : ""}`,
   setup(level, kit) {
