@@ -14,49 +14,74 @@
   .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--cream);color:var(--navy);border-radius:16px;padding:14px 8px 12px;text-decoration:none;box-shadow:0 5px 0 var(--lav2);position:relative}
   .tile:active{transform:translateY(3px);box-shadow:0 2px 0 var(--lav2)}
-  .tile b{font:400 9px/1.5 "Press Start 2P",monospace}
+  .tile b{font:400 9px/1.5 "Press Start 2P",monospace;text-transform:uppercase}
+  .tile .txt{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .tile .ic{display:flex;align-items:center;justify-content:center}
+  .tile .play{display:none}
+  .mhead{display:none}
   .tile small{font-size:12px;font-weight:600;color:#5a6390}
   .tile .tag{position:absolute;top:8px;right:8px;background:var(--gold);border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px}
   .tile.soon{background:rgba(255,246,229,.08);color:#9db8e8;box-shadow:none;border:2px dashed rgba(185,167,245,.5)}
   .tile.soon b{color:#c9d8f5} .tile.soon small{color:#9db8e8} .tile.soon canvas{opacity:.45}
   .foot{margin-top:18px;font-size:13px;color:#9db8e8}
   .foot a{color:var(--sky)}
-  @media (max-width:420px){.lobby{padding:14px 10px 22px}.lobby .sub{margin-bottom:14px}.tiles{gap:8px}.tile{padding:10px 3px 9px;gap:5px;border-radius:13px}.tile b{font-size:7px}.tile small{font-size:10.5px}.tile canvas{width:34px!important;height:34px!important}.tile .tag{top:4px;right:4px;font-size:9px;padding:1px 5px}}
-  @media (max-width:260px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  /* Phones: a one-column list of game cards with a play button */
+  @media (max-width:560px){
+    .lobby{padding:8px 0 18px;text-align:left}
+    .lobby h1,.lobby .sub{display:none}
+    .mhead{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 14px}
+    .mhead b{font:400 13px/1.4 "Press Start 2P",monospace;color:var(--cream)}
+    .mhead span{font-size:13px;color:#d9e2f5}
+    .tiles{grid-template-columns:minmax(0,1fr);gap:14px}
+    .tile{flex-direction:row;align-items:center;gap:14px;padding:12px 14px;border-radius:16px}
+    .tile .ic{flex:none;width:56px;height:56px;border-radius:12px;background:#ece4ff}
+    .tile canvas{width:40px!important;height:40px!important}
+    .tile .txt{flex:1;min-width:0;align-items:flex-start;gap:5px}
+    .tile b{font-size:10px;text-transform:none}
+    .tile small{font-size:13px;font-weight:500}
+    .tile .play{display:flex;flex:none;width:44px;height:44px;border-radius:12px;background:var(--navy);align-items:center;justify-content:center}
+    .tile .tag{position:static;order:3;flex:none}
+    .tile.soon .play{display:none}
+    .foot{text-align:center}
+  }
 </style>
 </head>
 <body>
 <div class="lobby">
   <h1>PETALS <span>ARCADE</span></h1>
+  <div class="mhead"><b>PICK A GAME</b><span id="count"></span></div>
   <p class="sub">Pick a game. Every game has 10 levels.</p>
   <div class="tiles" id="tiles"></div>
   <p class="foot">New games added regularly · <a href="https://www.buildpetals.com" target="_top">buildpetals.com</a></p>
 </div>
 <script>
 const GAMES = [
-  { slug: "petal-snake", name: "PETAL SNAKE", sprite: "rose", note: "Grow the vine" },
-  { slug: "petal-pairs", name: "PETAL PAIRS", sprite: "tulip", note: "Match the cards" },
-  { slug: "whack-a-weed", name: "WHACK-A-WEED", sprite: "weed", note: "Tap the weeds" },
-  { slug: "bloom-stack", name: "BLOOM STACK", sprite: "sunflower", note: "Stack the bricks" },
-  { slug: "petal-catcher", name: "PETAL CATCHER", sprite: "daisy", note: "Catch the flowers" },
-  { slug: "bee-line", name: "BEE LINE", sprite: "bee", note: "Fly the gaps" },
-  { slug: "bloom-breaker", name: "BLOOM BREAKER", sprite: "ladybug", note: "Break the bricks" },
-  { slug: "bouquet-blocks", name: "BOUQUET BLOCKS", sprite: "bluebell", note: "Clear the rows" },
-  { slug: "garden-match", name: "GARDEN MATCH", sprite: "phantom", note: "Match three" },
+  { slug: "petal-snake", name: "Petal Snake", sprite: "rose", note: "Grow the vine" },
+  { slug: "petal-pairs", name: "Petal Pairs", sprite: "tulip", note: "Match the cards" },
+  { slug: "whack-a-weed", name: "Whack-a-Weed", sprite: "weed", note: "Tap the weeds" },
+  { slug: "bloom-stack", name: "Bloom Stack", sprite: "sunflower", note: "Stack the bricks" },
+  { slug: "petal-catcher", name: "Petal Catcher", sprite: "daisy", note: "Catch the flowers" },
+  { slug: "bee-line", name: "Bee Line", sprite: "bee", note: "Fly the gaps" },
+  { slug: "bloom-breaker", name: "Bloom Breaker", sprite: "ladybug", note: "Break the bricks" },
+  { slug: "bouquet-blocks", name: "Bouquet Blocks", sprite: "bluebell", note: "Clear the rows" },
+  { slug: "garden-match", name: "Garden Match", sprite: "phantom", note: "Match three" },
 ];
 const tiles = document.getElementById("tiles");
 for (const g of GAMES) {
   const el = document.createElement(g.slug ? "a" : "div");
   el.className = "tile" + (g.slug ? "" : " soon");
   if (g.slug) { el.href = g.slug + "/"; el.target = "_self"; }
-  el.appendChild(Arcade.thumb(g.sprite, 48));
-  el.insertAdjacentHTML("beforeend", `<b>${g.name}</b><small>${g.note}</small>`);
+  const ic = document.createElement("span"); ic.className = "ic"; ic.appendChild(Arcade.thumb(g.sprite, 48)); el.appendChild(ic);
+  el.insertAdjacentHTML("beforeend", `<span class="txt"><b>${g.name}</b><small>${g.note}</small></span>`);
   if (g.slug) {
     const lvl = Arcade.store.get("bp_" + g.slug + "_bestlvl", 0);
     if (lvl) el.insertAdjacentHTML("beforeend", `<span class="tag">${lvl}/10</span>`);
+    el.insertAdjacentHTML("beforeend", `<span class="play" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 14 16"><polygon points="2,1 13,8 2,15" fill="#fff6e5"/></svg></span>`);
+    el.setAttribute("aria-label", "Play " + g.name);
   }
   tiles.appendChild(el);
 }
+document.getElementById("count").textContent = GAMES.filter(g => g.slug).length + " games";
 // Tell the Build Petals page how tall the game list is, so the Arcade box fits it.
 function reportLobbyHeight() {
   try {
