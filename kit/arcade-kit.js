@@ -130,11 +130,16 @@
       ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(cx, cy, s, u);
     }
   };
+  /* board background: soft garden lawn (style B) with a faint checker */
   A.grid = (ctx, W, H, cell) => {
-    ctx.fillStyle = "#0d1638"; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(143,199,255,.045)";
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#b6e4a2"); g.addColorStop(1, "#86c77a");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,.08)";
     for (let y = 0; y < H / cell; y++) for (let x = 0; x < W / cell; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * cell, y * cell, cell, cell);
   };
+  /* outline for text drawn on the board, so it reads on the light lawn */
+  A.ink = (ctx) => { ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(16,26,66,.85)"; };
   A.rand = (a, b) => a + Math.random() * (b - a);
   A.pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   A.lerpLevel = (level, a, b) => a + (b - a) * ((level - 1) / (LEVELS - 1));
