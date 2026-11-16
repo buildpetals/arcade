@@ -57,6 +57,17 @@ for (const g of GAMES) {
   }
   tiles.appendChild(el);
 }
+// Tell the Build Petals page how tall the game list is, so the Arcade box fits it.
+function reportLobbyHeight() {
+  try {
+    const lobby = document.querySelector(".lobby");
+    const h = Math.ceil(lobby.getBoundingClientRect().bottom + window.scrollY) + 8;
+    window.parent.postMessage({ source: "buildpetals-arcade", type: "lobby", height: h }, "*");
+  } catch (e) {}
+}
+reportLobbyHeight();
+window.addEventListener("load", reportLobbyHeight);
+if (window.ResizeObserver) new ResizeObserver(reportLobbyHeight).observe(document.querySelector(".lobby"));
 </script>
 </body>
 </html>
