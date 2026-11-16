@@ -94,11 +94,11 @@ Arcade.run({
       }
     }
     ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "center";
-    for (const p of pops) { const k = (kit.now - p.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; ctx.fillText(p.txt, p.x, p.y - k * 24); }
+    for (const p of pops) { const k = (kit.now - p.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; (Arcade.ink(ctx), ctx.strokeText(p.txt, p.x, p.y - k * 24), ctx.fillText(p.txt, p.x, p.y - k * 24)); }
     ctx.globalAlpha = 1;
     if (kit.state === "play" && kit.now < peekUntil) {
       ctx.fillStyle = "rgba(16,26,66,.75)"; ctx.fillRect(0, H / 2 - 22, W, 44);
-      ctx.fillStyle = "#fff6e5"; ctx.font = '12px "Press Start 2P", monospace'; ctx.textBaseline = "middle"; ctx.fillText("MEMORIZE!", W / 2, H / 2);
+      ctx.fillStyle = "#fff6e5"; ctx.font = '12px "Press Start 2P", monospace'; ctx.textBaseline = "middle"; (Arcade.ink(ctx), ctx.strokeText("MEMORIZE!", W / 2, H / 2), ctx.fillText("MEMORIZE!", W / 2, H / 2));
     }
   },
 });
