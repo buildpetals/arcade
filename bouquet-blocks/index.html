@@ -106,7 +106,7 @@ Arcade.run({
     }
     // side panel
     ctx.textAlign = "left"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#b9a7f5";
-    ctx.fillText("NEXT", PX, BY + 10);
+    (Arcade.ink(ctx), ctx.strokeText("NEXT", PX, BY + 10), ctx.fillText("NEXT", PX, BY + 10));
     ctx.fillStyle = "rgba(255,246,229,.06)"; ctx.fillRect(PX - 4, BY + 18, 88, 64);
     if (next) {
       const s = SHAPES[next], u = 17, xs = s.c.map((p) => p[0]), ys = s.c.map((p) => p[1]);
@@ -114,12 +114,12 @@ Arcade.run({
       const ox = PX - 4 + (88 - w) / 2 - Math.min(...xs) * u, oy = BY + 18 + (64 - h) / 2 - Math.min(...ys) * u;
       for (const [cx, cy] of s.c) cell(ctx, ox + cx * u, oy + cy * u, next, u);
     }
-    ctx.fillStyle = "#b9a7f5"; ctx.fillText("ROWS", PX, BY + 112);
+    ctx.fillStyle = "#b9a7f5"; (Arcade.ink(ctx), ctx.strokeText("ROWS", PX, BY + 112), ctx.fillText("ROWS", PX, BY + 112));
     ctx.fillStyle = "#ffd166"; ctx.font = '15px "Press Start 2P", monospace';
-    ctx.fillText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), PX, BY + 136);
+    (Arcade.ink(ctx), ctx.strokeText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), PX, BY + 136), ctx.fillText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), PX, BY + 136));
     Arcade.drawSprite(ctx, "bluebell", PX + 18, BY + 168, 44);
     ctx.textAlign = "center"; ctx.font = '11px "Press Start 2P", monospace';
-    for (const f of fx) { const k = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; ctx.fillText(f.txt, f.x, f.y - k * 28); }
+    for (const f of fx) { const k = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; (Arcade.ink(ctx), ctx.strokeText(f.txt, f.x, f.y - k * 28), ctx.fillText(f.txt, f.x, f.y - k * 28)); }
     ctx.globalAlpha = 1;
   },
 });
