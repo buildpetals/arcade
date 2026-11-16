@@ -24,11 +24,13 @@
   .pill b{color:var(--gold)}
   .ibtn{background:var(--lav);color:var(--navy);border:0;border-radius:10px;width:32px;height:32px;font-size:15px;cursor:pointer;box-shadow:0 3px 0 var(--lav2);flex:none}
   .ibtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--lav2)}
+  .home{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:48px;padding:10px 14px;border-radius:14px;background:var(--gold);color:var(--navy);font-weight:700;font-size:17px;text-decoration:none;box-shadow:0 4px 0 #c48b00;flex:none}
+  .home:active{transform:translateY(3px);box-shadow:0 1px 0 #c48b00}
   #bar{width:100%;height:8px;border-radius:99px;background:rgba(185,167,245,.18);overflow:hidden;flex:none}
   #bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lav),var(--gold));transition:width .2s}
   #stage{position:relative;flex:1;width:100%;min-height:0;display:flex;align-items:center;justify-content:center}
   #cv{display:block;border-radius:14px;box-shadow:0 0 0 3px rgba(185,167,245,.6),0 12px 30px rgba(0,0,0,.35);touch-action:none}
-  .ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px}
+  .ov{position:absolute;inset:0;bottom:calc(-1 * var(--padh,0px));z-index:5;display:flex;align-items:center;justify-content:center;padding:12px}
   .card{background:var(--cream);color:var(--navy);border-radius:18px;padding:18px 18px 16px;width:min(94%,390px);text-align:center;box-shadow:0 6px 0 var(--lav2),0 18px 40px rgba(0,0,0,.4);max-height:100%;overflow:auto}
   .card h1{margin:4px 0 8px;font:400 20px/1.3 "Press Start 2P",monospace} .card h1 span{color:var(--lav2)}
   .card p{margin:6px 0;font-size:15px;line-height:1.35;font-weight:500}
@@ -51,7 +53,21 @@
   .hidden{display:none!important}
   .toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--gold);color:var(--navy);font-weight:700;padding:4px 12px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
   .toast.on{opacity:1}
-  @media (max-width:460px){header{flex-wrap:wrap;justify-content:center;row-gap:6px}.ttl{width:100%;justify-content:center}.pill{padding:3px 7px}}`;
+  @media (max-width:460px){header{flex-wrap:wrap;justify-content:center;row-gap:6px}.ttl{width:100%;justify-content:center}.pill{padding:3px 7px}}
+  /* phones: the d-pad only shows while playing, so start / level / game-over cards can use its space */
+  #app:not(.playing) #dpad{visibility:hidden}
+  /* short screens (phones inside the Build Petals page): tighter cards so the Play button stays on screen */
+  @media (max-height:640px){
+    .card{padding:14px 14px 12px}
+    .card h1{font-size:17px;margin:2px 0 6px}
+    .card p{font-size:14px;margin:4px 0}
+    .legend{margin:6px 0 2px;gap:4px}
+    .legend div{font-size:11px;padding:2px 6px 2px 2px}
+    .legend canvas{width:22px!important;height:22px!important}
+    .btn{padding:9px 18px;font-size:16px;margin:4px 4px 2px}
+    .big{font-size:24px;margin:4px 0}
+    .levels{margin:6px 0}
+  }`;
   head.insertAdjacentHTML("beforeend", "<style>" + css + "</style>");
 
   /* ---------- safe storage ---------- */
@@ -131,6 +147,7 @@
     document.title = `${game.title.join(" ")} · Build Petals Arcade`;
     document.body.innerHTML = `
 <div id="app">
+  <a class="home hidden" id="homeBtn" href="https://www.buildpetals.com/rewards" target="_top">◀ Back to Petals Rewards</a>
   <header>
     <a class="ttl" href="../" target="_self" title="Back to the arcade"><i>◀</i><span style="color:var(--cream)">${game.title[0]}</span> <span>${game.title[1]}</span></a>
     <div class="row">
@@ -224,6 +241,8 @@
       scale = Math.max(0.3, Math.min((r.width - 6) / W, (r.height - 6) / H));
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       cv.style.width = W * scale + "px"; cv.style.height = H * scale + "px";
+      const dp = $("dpad"), dpOn = getComputedStyle(dp).display !== "none";
+      stage.style.setProperty("--padh", dpOn ? dp.getBoundingClientRect().height + 8 + "px" : "0px");
       cv.width = Math.round(W * scale * dpr); cv.height = Math.round(H * scale * dpr);
       ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0); ctx.imageSmoothingEnabled = false;
     }
@@ -234,7 +253,10 @@
       if (!game.lives) kit.setInfo(null);
       game.setup(kit.level, kit); hud();
     }
-    function show(id) { ["startScreen", "pauseScreen", "levelScreen", "overScreen"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+    function show(id) {
+      ["startScreen", "pauseScreen", "levelScreen", "overScreen"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+      $("app").classList.toggle("playing", !id);
+    }
     function levelBar(el, n) { el.innerHTML = Array.from({ length: LEVELS }, (_, i) => `<span class="${i < n ? "on" : ""}"></span>`).join(""); }
     /* Monthly saved progress (members, sent by the Build Petals page): pick up after the last level cleared
        this month; clearing all levels locks the game until the 1st of next month. Guests always start at Level 1. */
@@ -352,12 +374,25 @@
 
     $("startBtn").onclick = start; $("againBtn").onclick = start; $("resumeBtn").onclick = resume; $("nextBtn").onclick = nextLevel;
     $("pauseBtn").onclick = () => (kit.state === "play" ? pause() : resume());
+    /* Full screen. Inside buildpetals.com the page fills the window with the game and shows big Exit / Rewards
+       buttons, so players never leave the site. Opened on its own, use the browser's full screen if it has one. */
+    const embedded = window.parent !== window;
+    let pageFull = false;
+    function fsLabel(on) { $("fsBtn").textContent = on ? "✕" : "⛶"; $("fsBtn").title = on ? "Exit full screen" : "Full screen"; $("fsBtn").setAttribute("aria-label", $("fsBtn").title); }
+    window.addEventListener("message", (e) => {
+      const m = e.data; if (!m || m.source !== "buildpetals-site" || m.type !== "fullscreen") return;
+      pageFull = !!m.on; fsLabel(pageFull); setTimeout(resize, 50);
+    });
+    const nativeFs = !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+    if (!embedded && !nativeFs) $("fsBtn").classList.add("hidden");
     $("fsBtn").onclick = () => {
-      const el = document.documentElement;
-      if (document.fullscreenElement) return document.exitFullscreen();
-      if (document.fullscreenEnabled && el.requestFullscreen) el.requestFullscreen().catch(() => window.open(location.href, "_blank"));
-      else window.open(location.href, "_blank");
+      if (embedded) return send({ type: "fullscreen", on: !pageFull });
+      if (document.fullscreenElement) return document.exitFullscreen().catch(() => {});
+      if (nativeFs) document.documentElement.requestFullscreen().catch(() => {});
     };
+    if (!embedded) document.addEventListener("fullscreenchange", () => { fsLabel(!!document.fullscreenElement); setTimeout(resize, 50); });
+    /* A game opened on its own (an old full-screen tab or a shared link): a big, clear way back to buildpetals.com. */
+    if (!embedded) $("homeBtn").classList.remove("hidden");
     document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
     window.addEventListener("blur", pause);
 
