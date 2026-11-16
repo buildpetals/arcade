@@ -355,7 +355,7 @@
     cv.addEventListener("pointerup", (e) => { if (kit.state !== "play") return; const [x, y] = toLocal(e); game.pointerUp && game.pointerUp(x, y, kit); });
     /* Swipes: on the board, or anywhere on the screen for games that set swipeAnywhere (e.g. Petal Snake). */
     let tx = null, ty = null;
-    const swipeArea = game.swipeAnywhere ? document : stage, swipeMin = game.swipeAnywhere ? 16 : 22;
+    const swipeArea = game.swipeAnywhere ? document : stage, swipeMin = game.swipeStep || (game.swipeAnywhere ? 16 : 22);
     if (game.swipeAnywhere) $("app").classList.add("swipeall");
     swipeArea.addEventListener("touchstart", (e) => {
       if (e.target.closest && e.target.closest("button, a")) { tx = ty = null; return; }
