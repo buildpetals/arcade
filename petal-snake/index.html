@@ -110,7 +110,7 @@ Arcade.run({
     }
     for (let i = snake.length - 1; i >= 0; i--) {
       const [x, y] = snake[i];
-      Arcade.brick(ctx, x * CELL, y * CELL, CELL, CELL, i === 0 ? "#2f9a4a" : i % 2 ? "#3aa553" : "#43b85e", "#6fd98a", i === 0 ? "#38ad55" : "#55c96f", 1);
+      Arcade.brick(ctx, x * CELL, y * CELL, CELL, CELL, i === 0 ? "#1d6b34" : i % 2 ? "#23783c" : "#2a8746", "#4fbf68", i === 0 ? "#26803f" : "#35a052", 1);
     }
     const [hx, hy] = snake[0], [dx, dy] = DIRS[dir], u = 3;
     const cx = hx * CELL + CELL / 2 + dx * 4, cy = hy * CELL + CELL / 2 + dy * 4;
