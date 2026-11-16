@@ -152,6 +152,7 @@
       <p>${game.blurb}</p>
       <div class="legend" id="legend"></div>
       <button class="btn" id="startBtn">▶ Play</button>
+      <p class="hint" id="progStart" style="font-weight:700"></p>
       <p class="hint" id="bestStart"></p>
       <p class="hint">${game.hint}</p>
     </div></div>
@@ -235,7 +236,25 @@
     }
     function show(id) { ["startScreen", "pauseScreen", "levelScreen", "overScreen"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
     function levelBar(el, n) { el.innerHTML = Array.from({ length: LEVELS }, (_, i) => `<span class="${i < n ? "on" : ""}"></span>`).join(""); }
-    function start() { kit.score = 0; kit.level = 1; kit.cleared = 0; kit.startTime = Date.now(); setupLevel(); kit.state = "play"; show(null); }
+    /* Monthly saved progress (members, sent by the Build Petals page): pick up after the last level cleared
+       this month; clearing all levels locks the game until the 1st of next month. Guests always start at Level 1. */
+    let prog = null;
+    function startLevel() { return prog && prog.level > 0 && prog.level < LEVELS ? prog.level + 1 : 1; }
+    function applyProgress() {
+      const locked = !!(prog && prog.locked);
+      const s = startLevel();
+      $("startBtn").disabled = locked; $("againBtn").disabled = locked;
+      $("startBtn").textContent = locked ? "Cleared this month" : s > 1 ? `▶ Continue at Level ${s}` : "▶ Play";
+      $("againBtn").textContent = locked ? `Back on ${prog.reset || "the 1st"}` : s > 1 ? `↻ Continue at Level ${s}` : "↻ Play Again";
+      $("progStart").textContent = locked ? `You cleared all ${LEVELS} levels this month. It's back on ${prog.reset || "the 1st"}.`
+        : prog && prog.level > 0 ? `Saved this month: ${prog.level} / ${LEVELS} levels cleared` : "";
+    }
+    function start() {
+      if (prog && prog.locked) return;
+      const s = startLevel();
+      kit.score = 0; kit.level = s; kit.cleared = s - 1; kit.runStart = s; kit.startTime = Date.now();
+      setupLevel(); kit.state = "play"; show(null);
+    }
     function pause() { if (kit.state === "play") { kit.state = "pause"; show("pauseScreen"); } }
     function resume() { if (kit.state === "pause") { kit.state = "play"; show(null); } }
     let toastT;
@@ -267,7 +286,8 @@
       levelBar($("overLevels"), kit.cleared);
       $("bestLine").textContent = newBest && kit.score > 0 ? "🎉 New personal best!" : `Personal best: ${kit.best}`;
       $("points").classList.add("hidden"); $("loginBtn").classList.add("hidden");
-      if (window.parent !== window) send({ type: "gameOver", game: game.id, score: kit.score, levelsCleared: kit.cleared, durationMs: Date.now() - kit.startTime });
+      if (window.parent !== window) send({ type: "gameOver", game: game.id, score: kit.score, levelsCleared: kit.cleared, startLevel: kit.runStart || 1, durationMs: Date.now() - kit.startTime });
+      if (prog) { prog.level = Math.max(prog.level, kit.cleared); prog.locked = prog.level >= LEVELS; applyProgress(); }
       if (game.over) game.over(kit, won);
       show("overScreen");
     }
@@ -275,12 +295,22 @@
     /* messaging with the Wix page (only shows text if loyalty is connected and the page answers) */
     function send(msg) { try { window.parent.postMessage(Object.assign({ source: "buildpetals-arcade" }, msg), "*"); } catch (e) {} }
     window.addEventListener("message", (e) => {
-      const m = e.data; if (!m || m.source !== "buildpetals-site" || m.type !== "pointsResult") return;
+      const m = e.data; if (!m || m.source !== "buildpetals-site") return;
+      if (m.type === "progress") {
+        if (!m.enabled || !m.games) return;
+        const lvl = Math.max(0, Number(m.games[game.id]) || 0);
+        prog = { level: lvl, locked: lvl >= LEVELS, reset: m.resetLabel };
+        if (kit.state === "start" || kit.state === "over") applyProgress();
+        return;
+      }
+      if (m.type !== "pointsResult") return;
+      if (prog && m.level != null) { prog.level = Math.max(prog.level, Number(m.level) || 0); prog.locked = prog.level >= LEVELS; if (m.resetLabel) prog.reset = m.resetLabel; applyProgress(); }
       const msgs = {
         awarded: `🌸 +${m.points} loyalty points!${m.balance != null ? ` Balance: ${m.balance}` : ""}${m.todayLeft != null ? ` · ${m.todayLeft} more available today` : ""}`,
         capped: "You've hit today's arcade points limit. Come back tomorrow!",
         monthCap: "You've earned this month's arcade points max. Thanks for playing!",
-        noGain: "Beat your best level today to earn more points.",
+        noGain: prog ? "Clear a new level to earn more points this month." : "Beat your best level today to earn more points.",
+        locked: `You cleared this game for the month. It's back on ${m.resetLabel || "the 1st"}.`,
         belowMin: `Clear ${m.minLevels} level${m.minLevels === 1 ? "" : "s"} to earn loyalty points.`,
         login: "Members earn loyalty points for playing.",
         error: "Couldn't add points right now. Try again later.",
