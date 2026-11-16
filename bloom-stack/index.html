@@ -78,7 +78,7 @@ Arcade.run({
     if (flowerKey) { const t = tower[tower.length - 1]; Arcade.drawSprite(ctx, flowerKey, t.x + t.w / 2 - 22, t.y - 44, 44); }
     ctx.restore();
     ctx.fillStyle = "rgba(255,246,229,.85)"; ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "left";
-    ctx.fillText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22);
+    (Arcade.ink(ctx), ctx.strokeText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22), ctx.fillText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22));
   },
 });
 </script>
