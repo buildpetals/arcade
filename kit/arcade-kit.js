@@ -56,6 +56,7 @@
   @media (max-width:460px){header{flex-wrap:wrap;justify-content:center;row-gap:6px}.ttl{width:100%;justify-content:center}.pill{padding:3px 7px}}
   /* phones: the d-pad only shows while playing, so start / level / game-over cards can use its space */
   #app:not(.playing) #dpad{visibility:hidden}
+  #app.swipeall.playing{touch-action:none}
   /* short screens (phones inside the Build Petals page): tighter cards so the Play button stays on screen */
   @media (max-height:640px){
     .card{padding:14px 14px 12px}
@@ -352,18 +353,24 @@
     cv.addEventListener("pointerdown", (e) => { if (kit.state !== "play") return; e.preventDefault(); const [x, y] = toLocal(e); game.pointerDown && game.pointerDown(x, y, kit); });
     cv.addEventListener("pointermove", (e) => { if (kit.state !== "play") return; const [x, y] = toLocal(e); game.pointerMove && game.pointerMove(x, y, kit, e.buttons > 0 || e.pointerType === "touch"); });
     cv.addEventListener("pointerup", (e) => { if (kit.state !== "play") return; const [x, y] = toLocal(e); game.pointerUp && game.pointerUp(x, y, kit); });
+    /* Swipes: on the board, or anywhere on the screen for games that set swipeAnywhere (e.g. Petal Snake). */
     let tx = null, ty = null;
-    stage.addEventListener("touchstart", (e) => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; }, { passive: true });
-    stage.addEventListener("touchmove", (e) => {
-      if (kit.state === "play") e.preventDefault();
+    const swipeArea = game.swipeAnywhere ? document : stage, swipeMin = game.swipeAnywhere ? 16 : 22;
+    if (game.swipeAnywhere) $("app").classList.add("swipeall");
+    swipeArea.addEventListener("touchstart", (e) => {
+      if (e.target.closest && e.target.closest("button, a")) { tx = ty = null; return; }
+      const t = e.touches[0]; tx = t.clientX; ty = t.clientY;
+    }, { passive: true });
+    swipeArea.addEventListener("touchmove", (e) => {
+      if (kit.state === "play" && (tx !== null || swipeArea === stage)) e.preventDefault();
       if (tx === null || !game.swipe) return;
       const t = e.touches[0], dx = t.clientX - tx, dy = t.clientY - ty;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) > 22) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > swipeMin) {
         game.swipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"), kit);
         tx = t.clientX; ty = t.clientY;
       }
     }, { passive: false });
-    stage.addEventListener("touchend", () => { tx = ty = null; });
+    swipeArea.addEventListener("touchend", () => { tx = ty = null; });
     document.querySelectorAll("#dpad button").forEach((b) => b.addEventListener("pointerdown", (e) => { e.preventDefault(); if (kit.state === "play" && game.swipe) game.swipe(b.dataset.d, kit); }));
     const held = (A.keys = {});
     window.addEventListener("keyup", (e) => { held[e.key] = false; });
