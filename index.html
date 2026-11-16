@@ -28,6 +28,7 @@
   .tile.done .play{display:none}
   .foot{margin-top:18px;font-size:13px;color:#9db8e8}
   .foot a{color:var(--sky)}
+  a.rw{display:flex;align-items:center;justify-content:center;min-height:48px;background:var(--gold);color:var(--navy);font-weight:700;font-size:15px;text-decoration:none;padding:10px 16px;border-radius:12px;box-shadow:0 4px 0 #c48b00}
   /* Phones: a one-column list of game cards with a play button */
   @media (max-width:560px){
     .lobby{padding:8px 12px 18px;text-align:left}
@@ -51,6 +52,7 @@
 </head>
 <body>
 <div class="lobby">
+  <p id="backRewards" hidden style="margin:0 0 14px"><a class="rw" href="https://www.buildpetals.com/rewards" target="_top">◀ Back to Petals Rewards</a></p>
   <h1>PETALS <span>ARCADE</span></h1>
   <div class="mhead"><b>PICK A GAME</b><span id="count"></span></div>
   <p class="sub">Pick a game. Every game has 10 levels.</p>
@@ -84,6 +86,8 @@ for (const g of GAMES) {
   }
   tiles.appendChild(el);
 }
+// Opened on its own (not inside buildpetals.com): offer a clear way back to the rewards page.
+if (window.top === window) document.getElementById("backRewards").hidden = false;
 document.getElementById("count").textContent = GAMES.filter(g => g.slug).length + " games";
 // Monthly saved progress for members, sent by the Build Petals page: level badges and cleared games.
 window.addEventListener("message", (e) => {
