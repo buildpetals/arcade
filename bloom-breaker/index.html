@@ -105,10 +105,10 @@ Arcade.run({
     Arcade.drawSprite(ctx, "ladybug", -R - 2, -R - 2, 2 * R + 4); ctx.restore();
     ctx.textAlign = "center";
     if (ball.stuck && kit.state === "play") {
-      ctx.font = '11px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; ctx.fillText("TAP TO LAUNCH", W / 2, PY - 40);
+      ctx.font = '11px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; (Arcade.ink(ctx), ctx.strokeText("TAP TO LAUNCH", W / 2, PY - 40), ctx.fillText("TAP TO LAUNCH", W / 2, PY - 40));
     }
     ctx.font = '9px "Press Start 2P", monospace';
-    for (const f of fx) { const k = (kit.now - f.t) / 650; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y - k * 20); }
+    for (const f of fx) { const k = (kit.now - f.t) / 650; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; (Arcade.ink(ctx), ctx.strokeText(f.txt, f.x, f.y - k * 20), ctx.fillText(f.txt, f.x, f.y - k * 20)); }
     ctx.globalAlpha = 1;
   },
 });
