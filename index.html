@@ -8,42 +8,42 @@
 <style>
   html,body{overflow:auto!important;height:auto;min-height:100%}
   .lobby{width:100%;max-width:9999px;padding:18px 14px 28px;text-align:center}
-  .lobby h1{font:400 clamp(16px,5vw,24px)/1.3 "Press Start 2P",monospace;margin:6px 0 6px}
-  .lobby h1 span{color:var(--lav)}
-  .lobby .sub{margin:0 0 18px;color:#d9e2f5;font-size:15px}
+  .lobby h1{font:700 clamp(26px,7vw,36px)/1.2 "Fredoka",sans-serif;color:var(--ink);margin:6px 0 6px}
+  .lobby h1 span{color:var(--lav2)}
+  .lobby .sub{margin:0 0 18px;color:#5d6488;font-size:15px;font-weight:600}
   .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--cream);color:var(--navy);border-radius:16px;padding:14px 8px 12px;text-decoration:none;box-shadow:0 5px 0 var(--lav2);position:relative}
-  .tile:active{transform:translateY(3px);box-shadow:0 2px 0 var(--lav2)}
-  .tile b{font:400 9px/1.5 "Press Start 2P",monospace;text-transform:uppercase}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:#fff;color:var(--ink);border-radius:18px;padding:14px 8px 12px;text-decoration:none;box-shadow:0 4px 12px rgba(40,30,70,.16);position:relative}
+  .tile:active{transform:translateY(2px)}
+  .tile b{font:700 15px/1.3 "Fredoka",sans-serif}
   .tile .txt{display:flex;flex-direction:column;align-items:center;gap:8px}
   .tile .ic{display:flex;align-items:center;justify-content:center}
   .tile .play{display:none}
   .mhead{display:none}
-  .tile small{font-size:12px;font-weight:600;color:#5a6390}
+  .tile small{font-size:13px;font-weight:600;color:#5d6488}
   .tile .tag{position:absolute;top:8px;right:8px;background:var(--gold);border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px}
-  .tile.soon{background:rgba(255,246,229,.08);color:#9db8e8;box-shadow:none;border:2px dashed rgba(185,167,245,.5)}
-  .tile.soon b{color:#c9d8f5} .tile.soon small{color:#9db8e8} .tile.soon canvas{opacity:.45}
-  .tile.done{opacity:.72;cursor:default;box-shadow:0 5px 0 rgba(185,167,245,.5)}
+  .tile.soon{background:rgba(255,255,255,.45);color:#7d84a8;box-shadow:none;border:2px dashed rgba(154,127,208,.45)}
+  .tile.soon b{color:#7d84a8} .tile.soon small{color:#7d84a8} .tile.soon canvas{opacity:.45}
+  .tile.done{opacity:.72;cursor:default}
   .tile.done small{color:#7E5FB5;font-weight:700}
   .tile.done .play{display:none}
-  .foot{margin-top:18px;font-size:13px;color:#9db8e8}
-  .foot a{color:var(--sky)}
-  a.rw{display:flex;align-items:center;justify-content:center;min-height:48px;background:var(--gold);color:var(--navy);font-weight:700;font-size:15px;text-decoration:none;padding:10px 16px;border-radius:12px;box-shadow:0 4px 0 #c48b00}
+  .foot{margin-top:18px;font-size:13px;color:#5d6488}
+  .foot a{color:var(--lav2);font-weight:700}
+  a.rw{display:flex;align-items:center;justify-content:center;min-height:48px;background:var(--gold);color:var(--navy);font-weight:700;font-size:15px;text-decoration:none;padding:10px 16px;border-radius:12px;box-shadow:0 4px 12px rgba(40,30,70,.16)}
   /* Phones: a one-column list of game cards with a play button */
   @media (max-width:560px){
     .lobby{padding:8px 12px 18px;text-align:left}
     .lobby h1,.lobby .sub{display:none}
     .mhead{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 14px}
-    .mhead b{font:400 13px/1.4 "Press Start 2P",monospace;color:var(--cream)}
-    .mhead span{font-size:13px;color:#d9e2f5}
+    .mhead b{font:700 20px/1.3 "Fredoka",sans-serif;color:var(--ink)}
+    .mhead span{font-size:14px;color:#5d6488;font-weight:700}
     .tiles{grid-template-columns:minmax(0,1fr);gap:14px}
     .tile{flex-direction:row;align-items:center;gap:14px;padding:12px 14px;border-radius:16px}
-    .tile .ic{flex:none;width:56px;height:56px;border-radius:12px;background:#ece4ff}
+    .tile .ic{flex:none;width:56px;height:56px;border-radius:14px;background:#f1eafc}
     .tile canvas{width:40px!important;height:40px!important}
     .tile .txt{flex:1;min-width:0;align-items:flex-start;gap:5px}
-    .tile b{font-size:10px;text-transform:none}
+    .tile b{font-size:16px;text-transform:none}
     .tile small{font-size:13px;font-weight:500}
-    .tile .play{display:flex;flex:none;width:44px;height:44px;border-radius:12px;background:var(--navy);align-items:center;justify-content:center}
+    .tile .play{display:flex;flex:none;width:44px;height:44px;border-radius:14px;background:var(--lav);align-items:center;justify-content:center}
     .tile .tag{position:static;flex:none}
     .tile.soon .play{display:none}
     .foot{text-align:center}
