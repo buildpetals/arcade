@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Seed Sling · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* SEED SLING — pull back, let go, and land seeds in the flower pots. */
+const W = 360, H = 480, GROUND = H - 40, SX = 54, SY = GROUND - 70, GRAV = 520, MAXV = 560;
+const GOAL = [3, 3, 4, 4, 5, 5, 5, 6, 6, 7];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+let pots, seed, drag, wind, fx, blooms, guideLen;
+
+function placePot(p, level) {
+  p.w = Math.round(L(level, 58, 40)); p.h = 34;
+  p.x = Arcade.rand(150, W - p.w - 12);
+  p.y = level >= 3 && Math.random() < 0.5 ? Arcade.rand(GROUND - 190, GROUND - 90) : GROUND - p.h;
+  p.vx = level >= 6 ? Arcade.rand(25, L(level, 30, 70)) * (Math.random() < 0.5 ? -1 : 1) : 0;
+  p.bloom = 0;
+}
+function velocityFromDrag() {
+  const dx = SX - drag.x, dy = SY - drag.y, k = 4.2;
+  let vx = dx * k, vy = dy * k; const s = Math.hypot(vx, vy);
+  if (s > MAXV) { vx *= MAXV / s; vy *= MAXV / s; }
+  return [vx, vy];
+}
+function launch(kit) {
+  if (!drag || seed) return;
+  const [vx, vy] = velocityFromDrag(); drag = null;
+  if (Math.hypot(vx, vy) < 90) return;
+  seed = { x: SX, y: SY, vx, vy, t: 0 };
+}
+
+Arcade.run({
+  id: "seed-sling",
+  title: ["SEED", "SLING"],
+  blurb: "Pull back the sling and let go to plant seeds in the flower pots. A miss costs a heart, and from level 7 the <b>wind</b> pushes your seeds. Clear all <b>10 levels</b>.",
+  hint: "Drag back from the sling, let go to shoot · Space to pause",
+  legend: [{ sprite: "pot", label: "land in the pot" }, { sprite: "sunflower", label: "it blooms!" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `plant ${GOAL[l - 1]} seeds${l === 3 ? " · pots on ledges!" : l === 6 ? " · moving pots!" : l === 7 ? " · wind!" : ""}`,
+  setup(level, kit) {
+    pots = Array.from({ length: level >= 5 ? 2 : 3 }, () => ({}));
+    pots.forEach((p) => placePot(p, level));
+    seed = null; drag = null; fx = []; blooms = [];
+    wind = level >= 7 ? Arcade.rand(-1, 1) * L(level, 40, 110) : 0;
+    guideLen = Math.round(L(level, 16, 5));
+  },
+  update(dt, kit) {
+    for (const p of pots) if (p.vx) { p.x += p.vx * dt; if (p.x < 140 || p.x + p.w > W - 8) { p.vx *= -1; p.x = Math.max(140, Math.min(W - 8 - p.w, p.x)); } }
+    if (seed) {
+      const px = seed.x, py = seed.y;
+      seed.vx += wind * dt; seed.vy += GRAV * dt; seed.x += seed.vx * dt; seed.y += seed.vy * dt; seed.t += dt;
+      for (const p of pots) {
+        if (seed.vy > 0 && py <= p.y && seed.y >= p.y && seed.x > p.x + 4 && seed.x < p.x + p.w - 4) {
+          seed = null; kit.add(50 + (p.y < GROUND - 60 ? 30 : 0) + (p.vx ? 30 : 0));
+          fx.push({ x: p.x + p.w / 2, y: p.y - 30, t: kit.now, txt: "planted!", c: "#ffd166" });
+          blooms.push({ x: p.x + p.w / 2, y: p.y, t: kit.now });
+          const was = p; setTimeout(() => placePot(was, kit.level), 0);
+          if (wind) wind = Arcade.rand(-1, 1) * L(kit.level, 40, 110);
+          kit.collect(); return;
+        }
+        // bounce off the pot's sides
+        if (seed.y > p.y && seed.y < p.y + p.h && seed.x > p.x - 4 && seed.x < p.x + p.w + 4 && !(py > p.y && px > p.x && px < p.x + p.w)) { seed.vx *= -0.5; seed.x = px; }
+      }
+      if (seed.y > GROUND || seed.x > W + 20 || seed.x < -20) {
+        fx.push({ x: Math.max(20, Math.min(W - 20, seed.x)), y: GROUND - 16, t: kit.now, txt: "missed", c: "#ff8fc2" });
+        seed = null; kit.loseLife();
+      }
+    }
+    fx = fx.filter((f) => kit.now - f.t < 800);
+    blooms = blooms.filter((b) => kit.now - b.t < 900);
+  },
+  pointerDown(x, y) { if (!seed) drag = { x, y }; },
+  pointerMove(x, y, kit, down) { if (drag && down) { drag.x = x; drag.y = y; } },
+  pointerUp(x, y, kit) { if (drag) { drag.x = x; drag.y = y; launch(kit); } },
+  key(k, kit) {
+    if (seed) return false;
+    if (!drag) drag = { x: SX - 60, y: SY + 50 };
+    const step = 4;
+    if (k === "ArrowLeft") { drag.x -= step; return true; }
+    if (k === "ArrowRight") { drag.x += step; return true; }
+    if (k === "ArrowUp") { drag.y -= step; return true; }
+    if (k === "ArrowDown") { drag.y += step; return true; }
+    if (k === "Enter" || k === "f" || k === "F") { launch(kit); return true; }
+    return false;
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = "#4cc36a"; ctx.fillRect(0, GROUND, W, 6);
+    if (wind) {
+      ctx.textAlign = "center"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+      const t = "WIND " + (wind > 0 ? "→".repeat(1 + Math.round(Math.abs(wind) / 45)) : "←".repeat(1 + Math.round(Math.abs(wind) / 45)));
+      ctx.strokeText(t, W / 2, 22); ctx.fillText(t, W / 2, 22);
+    }
+    for (const p of pots) {
+      if (p.y < GROUND - p.h - 2) { Arcade.brick(ctx, p.x - 10, p.y + p.h, p.w + 20, 14, "#8f7ae6", "#b9a7f5", "#a593ef"); }
+      ctx.fillStyle = "#8a3f1c"; ctx.fillRect(p.x - 3, p.y, p.w + 6, 8);
+      ctx.fillStyle = "#c96a3a"; ctx.beginPath(); ctx.moveTo(p.x, p.y + 8); ctx.lineTo(p.x + p.w, p.y + 8); ctx.lineTo(p.x + p.w - 6, p.y + p.h); ctx.lineTo(p.x + 6, p.y + p.h); ctx.fill();
+      ctx.fillStyle = "#5c2e0e"; ctx.fillRect(p.x + 2, p.y + 1, p.w - 4, 3);
+    }
+    for (const b of blooms) { const k = Math.min(1, (kit.now - b.t) / 300); Arcade.drawSprite(ctx, "sunflower", b.x - 16 * k, b.y - 34 * k, 32 * k); }
+    // sling
+    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(SX - 4, SY + 6, 8, GROUND - SY - 6);
+    ctx.fillRect(SX - 16, SY - 12, 6, 22); ctx.fillRect(SX + 10, SY - 12, 6, 22);
+    const hold = drag && !seed ? drag : null;
+    ctx.strokeStyle = "#5c2e0e"; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.moveTo(SX - 13, SY - 10); ctx.lineTo(hold ? hold.x : SX, hold ? hold.y : SY); ctx.lineTo(SX + 13, SY - 10); ctx.stroke();
+    if (hold) {
+      const [vx0, vy0] = velocityFromDrag(); let x = SX, y = SY, vx = vx0, vy = vy0;
+      ctx.fillStyle = "rgba(16,26,66,.55)";
+      for (let i = 0; i < guideLen * 3; i++) { vx += wind * 0.02; vy += GRAV * 0.02; x += vx * 0.02; y += vy * 0.02; if (i % 3 === 2) { ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill(); } }
+    }
+    const s = seed || (hold ? { x: hold.x, y: hold.y } : { x: SX, y: SY });
+    ctx.fillStyle = "#5c2e0e"; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 9, seed ? seed.t * 8 : 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "#c98450"; ctx.beginPath(); ctx.ellipse(s.x - 2, s.y - 3, 2, 3, 0, 0, 7); ctx.fill();
+    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
