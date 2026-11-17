@@ -112,13 +112,13 @@ Arcade.run({
       const b = BTN[k], off = k === "add" && extraUsed;
       ctx.globalAlpha = off ? 0.4 : 1;
       Arcade.brick(ctx, b.x, b.y, b.w, b.h, "#8f7ae6", "#b9a7f5", "#a593ef", 3);
-      ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
+      ctx.font = '700 13px Fredoka, sans-serif'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
       Arcade.ink(ctx); ctx.strokeText(b.t, b.x + b.w / 2, b.y + b.h / 2 + 4); ctx.fillText(b.t, b.x + b.w / 2, b.y + b.h / 2 + 4);
     }
     ctx.globalAlpha = 1;
-    ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
     ctx.strokeText("MOVES " + moves, W / 2, 24); ctx.fillText("MOVES " + moves, W / 2, 24);
-    ctx.font = '11px "Press Start 2P", monospace';
+    ctx.font = '700 16px Fredoka, sans-serif';
     for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
     ctx.globalAlpha = 1;
   },
