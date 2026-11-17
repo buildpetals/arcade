@@ -23,9 +23,10 @@ function newMover(kit) {
 }
 function drop(kit) {
   if (!mover || done) return;
+  if (Math.min(mover.x + mover.w, W) - Math.max(mover.x, 0) < mover.w * 0.5) return; // brick still mostly off screen: ignore the tap
   const top = tower[tower.length - 1];
   const left = Math.max(mover.x, top.x), right = Math.min(mover.x + mover.w, top.x + top.w), overlap = right - left;
-  if (overlap <= 2) { falling.push({ x: mover.x, y: mover.y, w: mover.w, vy: 0, ci: mover.ci }); mover = null; kit.toast("Missed!"); failAt = kit.now + 450; return; }
+  if (overlap <= 2) { falling.push({ x: mover.x, y: mover.y, w: mover.w, vy: 0, ci: mover.ci }); mover = null; failAt = kit.now + 450; return; }
   let x = left, w = overlap, perfect = Math.abs(mover.x - top.x) < (kit.level >= 6 ? 4 : 5);
   if (perfect) { x = top.x; w = Math.min(BASE_W, top.w + 6); kit.add(25); kit.toast("Perfect! +25"); }
   else {
@@ -43,10 +44,10 @@ function drop(kit) {
 Arcade.run({
   id: "bloom-stack",
   title: ["BLOOM", "STACK"],
-  blurb: "Tap to drop each sliding brick onto the tower. Anything hanging over the edge falls off. Stack high enough to plant a flower on top! <b>10 levels</b>.",
+  blurb: "Tap to drop each sliding brick onto the tower. Anything hanging over the edge falls off, and a missed brick costs a heart. Stack high enough to plant a flower on top! <b>10 levels</b>.",
   hint: "Tap / click / Space to drop · P to pause",
   legend: [{ sprite: "sunflower", label: "brick +10" }, { sprite: "mystery", label: "perfect +25" }],
-  width: W, height: H,
+  width: W, height: H, lives: 3,
   goal: (l) => GOAL[l - 1],
   goalLabel: (l) => `stack ${GOAL[l - 1]} bricks · faster slides`,
   setup(level, kit) {
@@ -54,7 +55,7 @@ Arcade.run({
     falling = []; cam = camTarget = 0; done = false; flowerKey = null; failAt = doneAt = 0; newMover(kit);
   },
   update(dt, kit) {
-    if (failAt && kit.now > failAt) { failAt = 0; return kit.fail(); }
+    if (failAt && kit.now > failAt) { failAt = 0; kit.loseLife(); if (kit.state === "play") newMover(kit); return; }
     if (doneAt && kit.now > doneAt) { doneAt = 0; return kit.collect(); }
     if (mover) {
       mover.x += mover.v * dt;
