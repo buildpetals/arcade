@@ -100,25 +100,32 @@ Arcade.run({
   },
   swipe(d) { setDir(d); },
   draw(ctx, kit) {
+    const SP = Arcade.softPaper, h = CELL / 2;
     Arcade.grid(ctx, G * CELL, G * CELL, CELL);
-    bricks.forEach((k) => { const [x, y] = k.split(",").map(Number); Arcade.brick(ctx, x * CELL, y * CELL, CELL, CELL, "#8f7ae6", "#b9a7f5", "#a593ee", 1); });
+    bricks.forEach((k) => { const [x, y] = k.split(",").map(Number); Arcade.brick(ctx, x * CELL, y * CELL, CELL, CELL, "#b79ae0"); });
     for (const it of items) {
       let alpha = 1;
       if (it.life) { const left = it.life - (kit.now - it.born); if (left < 1800) alpha = Math.floor(left / 150) % 2 ? 0.35 : 1; }
-      const bob = Math.round(Math.sin((kit.now - it.born) / 260) * 1.2);
-      Arcade.drawSprite(ctx, it.s, it.x * CELL, it.y * CELL + bob, CELL, { alpha });
+      const bob = Math.sin((kit.now - it.born) / 260) * 1.2;
+      Arcade.drawSprite(ctx, it.s, it.x * CELL - 1, it.y * CELL - 1 + bob, CELL + 2, { alpha });
     }
-    for (let i = snake.length - 1; i >= 0; i--) {
+    /* the vine: one soft green band, then a paper bead per segment, with small leaves */
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.shadowColor = "rgba(30,60,30,.25)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+    ctx.strokeStyle = "#4f9e4c"; ctx.lineWidth = CELL * 0.62; ctx.beginPath();
+    snake.forEach(([x, y], i) => (i ? ctx.lineTo(x * CELL + h, y * CELL + h) : ctx.moveTo(x * CELL + h, y * CELL + h))); ctx.stroke(); ctx.restore();
+    for (let i = snake.length - 1; i >= 1; i--) {
       const [x, y] = snake[i];
-      Arcade.brick(ctx, x * CELL, y * CELL, CELL, CELL, i === 0 ? "#1d6b34" : i % 2 ? "#23783c" : "#2a8746", "#4fbf68", i === 0 ? "#26803f" : "#35a052", 1);
+      SP.piece(ctx, SP.circ(x * CELL + h, y * CELL + h, CELL * 0.4), i % 2 ? "#6cc06a" : "#5fb35d", 0.8);
+      if (i % 3 === 0) SP.piece(ctx, SP.ell(x * CELL + h + 5, y * CELL + h - 5, 5, 2.4, -0.7), "#9bdc85", 0.6);
     }
-    const [hx, hy] = snake[0], [dx, dy] = DIRS[dir], u = 3;
-    const cx = hx * CELL + CELL / 2 + dx * 4, cy = hy * CELL + CELL / 2 + dy * 4;
+    const [hx, hy] = snake[0], [dx, dy] = DIRS[dir], cx = hx * CELL + h, cy = hy * CELL + h;
+    SP.piece(ctx, SP.circ(cx, cy, CELL * 0.52), "#3f9a4a", 1);
     for (const s of [-1, 1]) {
-      const ex = cx + dy * 4 * s - u / 2, ey = cy + dx * 4 * s - u / 2;
-      ctx.fillStyle = "#fff"; ctx.fillRect(ex - u / 2, ey - u / 2, u * 2, u * 2);
-      ctx.fillStyle = "#101a42"; ctx.fillRect(ex + dx, ey + dy, u, u);
+      const ex = cx + dx * 3 + dy * 4.5 * s, ey = cy + dy * 3 + dx * 4.5 * s;
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex, ey, 3.2, 0, 7); ctx.fill();
+      ctx.fillStyle = "#101a42"; ctx.beginPath(); ctx.arc(ex + dx * 1.2, ey + dy * 1.2, 1.8, 0, 7); ctx.fill();
     }
+    ctx.fillStyle = "#f3a5b7"; ctx.beginPath(); ctx.arc(cx - dx * 3 + dy * 6, cy - dy * 3 + dx * 6, 1.6, 0, 7); ctx.arc(cx - dx * 3 - dy * 6, cy - dy * 3 - dx * 6, 1.6, 0, 7); ctx.fill();
   },
 });
 </script>
