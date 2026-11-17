@@ -168,38 +168,40 @@ Arcade.run({
     return false;
   },
   draw(ctx, kit) {
+    const SP = Arcade.softPaper;
     Arcade.grid(ctx, W, H, 24);
-    ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = "left"; ctx.fillStyle = "#b9a7f5";
-    (Arcade.ink(ctx), ctx.strokeText("MOVES", OX, 24), ctx.fillText("MOVES", OX, 24));
-    ctx.fillStyle = moves <= 3 ? "#ff8fc2" : "#ffd166"; ctx.font = '18px "Press Start 2P", monospace';
-    (Arcade.ink(ctx), ctx.strokeText(String(moves), OX, 50), ctx.fillText(String(moves), OX, 50));
-    ctx.textAlign = "right"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#b9a7f5";
-    (Arcade.ink(ctx), ctx.strokeText("FLOWERS", OX + NC * T, 24), ctx.fillText("FLOWERS", OX + NC * T, 24));
-    ctx.fillStyle = "#ffd166"; ctx.font = '18px "Press Start 2P", monospace';
-    (Arcade.ink(ctx), ctx.strokeText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), OX + NC * T, 50), ctx.fillText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), OX + NC * T, 50));
+    const chip = (x, w, label, val, col) => {
+      SP.piece(ctx, SP.rr(x, 10, w, 46, 16), "#ffffff", 1.4);
+      ctx.textAlign = "center"; ctx.fillStyle = "#9a7fd0"; ctx.font = Arcade.font(11, 800); ctx.fillText(label, x + w / 2, 26);
+      ctx.fillStyle = col; ctx.font = Arcade.font(20, 700); ctx.fillText(val, x + w / 2, 48);
+    };
+    chip(OX, 104, "MOVES", String(moves), moves <= 3 ? "#e2577f" : "#2a3260");
+    chip(OX + NC * T - 104, 104, "FLOWERS", Math.min(kit.got, kit.goal()) + "/" + kit.goal(), "#e2577f");
 
-    ctx.fillStyle = "#101d4a"; ctx.fillRect(OX - 4, OY - 4, NC * T + 8, NR * T + 8);
+    SP.piece(ctx, SP.rr(OX - 6, OY - 6, NC * T + 12, NR * T + 12, 18), "#fbf6ff", 1.6);
     for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) {
-      ctx.fillStyle = (r + c) % 2 ? "rgba(143,199,255,.05)" : "rgba(143,199,255,.10)";
-      ctx.fillRect(OX + c * T + 2, OY + r * T + 2, T - 4, T - 4);
+      ctx.fillStyle = (r + c) % 2 ? "#efe6fb" : "#f6f0fd";
+      ctx.beginPath(); ctx.roundRect(OX + c * T + 2, OY + r * T + 2, T - 4, T - 4, 10); ctx.fill();
     }
-    ctx.save(); ctx.beginPath(); ctx.rect(OX - 4, OY - 4, NC * T + 8, NR * T + 8); ctx.clip();
+    ctx.save(); ctx.beginPath(); ctx.roundRect(OX - 4, OY - 4, NC * T + 8, NR * T + 8, 16); ctx.clip();
     const swapping = phase === "swap" || phase === "unswap", k = Math.min(1, phaseT);
+    const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
     for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) {
       const tile = grid[r][c];
       let x = OX + c * T, y = OY + r * T - tile.oy;
-      if (swapping && swapA.r === r && swapA.c === c) { x += (swapB.c - c) * T * k; y += (swapB.r - r) * T * k; }
-      else if (swapping && swapB.r === r && swapB.c === c) { x += (swapA.c - c) * T * k; y += (swapA.r - r) * T * k; }
-      const size = 34 * (tile.pop ? 1 - tile.pop * 0.7 : 1);
-      Arcade.drawSprite(ctx, ALL[tile.t], x + (T - size) / 2, y + (T - size) / 2, size, tile.pop ? { alpha: 1 - tile.pop } : null);
+      if (swapping && swapA.r === r && swapA.c === c) { x += (swapB.c - c) * T * ease; y += (swapB.r - r) * T * ease; }
+      else if (swapping && swapB.r === r && swapB.c === c) { x += (swapA.c - c) * T * ease; y += (swapA.r - r) * T * ease; }
+      const lifted = sel && phase === "idle" && sel.r === r && sel.c === c;
+      const size = (lifted ? 40 : 36) * (tile.pop ? 1 + tile.pop * 0.35 : 1);
+      Arcade.drawSprite(ctx, ALL[tile.t], x + (T - size) / 2, y + (T - size) / 2 - (lifted ? 2 : 0), size, tile.pop ? { alpha: 1 - tile.pop } : null);
     }
     ctx.restore();
     if (sel && phase === "idle") {
-      ctx.strokeStyle = grabbed ? "#ffd166" : "#b9a7f5"; ctx.lineWidth = 3;
-      ctx.strokeRect(OX + sel.c * T + 2, OY + sel.r * T + 2, T - 4, T - 4);
+      ctx.strokeStyle = grabbed ? "#ffc93c" : "#b79ae0"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(OX + sel.c * T + 2, OY + sel.r * T + 2, T - 4, T - 4, 10); ctx.stroke();
     }
-    ctx.textAlign = "center"; ctx.font = '11px "Press Start 2P", monospace';
-    for (const f of fx) { const t = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - t; ctx.fillStyle = "#ffd166"; ctx.fillText(f.txt, f.x, f.y - t * 30); }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(18, 700); ctx.lineJoin = "round";
+    for (const f of fx) { const t = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - t; ctx.lineWidth = 5; ctx.strokeStyle = "#fff"; ctx.strokeText(f.txt, f.x, f.y - t * 30); ctx.fillStyle = "#e2577f"; ctx.fillText(f.txt, f.x, f.y - t * 30); }
     ctx.globalAlpha = 1;
   },
 });
