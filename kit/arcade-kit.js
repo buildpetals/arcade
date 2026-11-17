@@ -237,6 +237,8 @@
   A.rand = (a, b) => a + Math.random() * (b - a);
   A.pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   A.lerpLevel = (level, a, b) => a + (b - a) * ((level - 1) / (LEVELS - 1));
+  /* Speed-up during a level: 1 at the start, rising perSec per second of play, capped at 1 + max. */
+  A.speedUp = (kit, perSec, max) => 1 + Math.min(max == null ? 0.3 : max, (perSec == null ? 0.015 : perSec) * (kit.levelTime || 0));
 
   const TITLES = ["SPROUT!", "BUDDING!", "BLOOMING!", "GREEN THUMB!", "GARDENER!", "FLORIST!", "BOUQUET PRO!", "PETAL MASTER!", "BLOOM LEGEND!", "FULL BOUQUET!"];
 
@@ -306,7 +308,7 @@
 
     const bestKey = "bp_" + game.id + "_best", lvlKey = "bp_" + game.id + "_bestlvl";
     const kit = {
-      W, H, level: 1, score: 0, got: 0, cleared: 0, lives: null, state: "start", now: performance.now(), startTime: 0,
+      W, H, level: 1, score: 0, got: 0, cleared: 0, lives: null, levelTime: 0, state: "start", now: performance.now(), startTime: 0,
       best: A.store.get(bestKey, 0), bestLevel: A.store.get(lvlKey, 0),
       goal() { return game.goal(kit.level); },
       add(n) { kit.score += n; hud(); },
@@ -348,7 +350,13 @@
     window.addEventListener("resize", resize);
 
     function setupLevel() {
-      kit.got = 0; kit.lives = game.lives || null; hearts();
+      /* Hearts carry over between levels in a run (a fresh run, or a run continued from saved progress, starts full);
+         every 3 levels cleared in the run gives one heart back. A game can opt out with carryLives: false. */
+      kit.got = 0; kit.levelTime = 0;
+      if (!game.lives) kit.lives = null;
+      else if (game.carryLives === false || kit.lives == null || kit.lives <= 0 || kit.level === (kit.runStart || 1) || kit.state === "start" || kit.state === "over") kit.lives = game.lives;
+      else if ((kit.level - kit.runStart) % 3 === 0 && kit.lives < game.lives) { kit.lives++; toast("+1 heart!"); }
+      hearts();
       if (!game.lives) kit.setInfo(null);
       game.setup(kit.level, kit); hud();
     }
@@ -505,7 +513,7 @@
     let last = performance.now();
     function loop(now) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now; kit.now = now;
-      if (kit.state === "play") game.update(dt, kit);
+      if (kit.state === "play") { kit.levelTime += dt; game.update(dt, kit); }
       ctx.save(); game.draw(ctx, kit); ctx.restore();
       requestAnimationFrame(loop);
     }
