@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mow Lane · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* MOW LANE — swipe the mower across the lawn. It rolls until it hits a flowerbed or the fence. Mow every patch of grass. */
+const W = 360, H = 480;
+const SIZES = [[5, 6], [6, 6], [6, 7], [7, 7], [7, 8], [7, 9], [8, 9], [8, 10], [8, 10], [8, 11]];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+let cols, rows, C, ox, oy, grid, mower, timeLeft, fx, grassLeft, totalGrass = 1;
+// grid cells: 0 grass, 1 mowed, 2 flowerbed (blocks), 3 stepping stones (nothing to mow)
+const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+function slideEnd(r, c, d) {
+  const [dc, dr] = DIRS[d]; const cells = [];
+  while (true) { const a = r + dr, b = c + dc; if (a < 0 || a >= rows || b < 0 || b >= cols || grid[a][b] === 2) break; r = a; c = b; cells.push([r, c]); }
+  return { r, c, cells };
+}
+function generate(level) {
+  for (let tries = 0; tries < 200; tries++) {
+    grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+    const beds = Math.round(cols * rows * L(level, 0.12, 0.2));
+    for (let i = 0; i < beds; i++) grid[Math.floor(Math.random() * rows)][Math.floor(Math.random() * cols)] = 2;
+    const sr = rows - 1, sc = 0; grid[sr][sc] = 0;
+    // every square the mower can ever roll over, from every spot it can reach
+    const reach = new Set([sr + "," + sc]), q = [[sr, sc]], cover = new Set([sr + "," + sc]);
+    while (q.length) {
+      const [r, c] = q.shift();
+      for (const d in DIRS) { const e = slideEnd(r, c, d); e.cells.forEach(([a, b]) => cover.add(a + "," + b)); const k = e.r + "," + e.c; if (!reach.has(k)) { reach.add(k); q.push([e.r, e.c]); } }
+    }
+    let grass = 0;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (grid[r][c] === 0) { if (cover.has(r + "," + c)) grass++; else grid[r][c] = 3; }
+    const stones = grid.flat().filter((v) => v === 3).length;
+    if ((grass >= cols * rows * 0.6 && stones <= 3) || tries === 199) { mower = { r: sr, c: sc, x: sc, y: sr, moving: null, face: 1 }; grid[sr][sc] = 1; grassLeft = totalGrass = grass - 1; return; }
+  }
+}
+function go(d, kit) {
+  if (mower.moving) return;
+  const e = slideEnd(mower.r, mower.c, d); if (!e.cells.length) return;
+  mower.moving = { d, cells: e.cells, i: 0, t: 0 }; if (DIRS[d][0]) mower.face = DIRS[d][0];
+}
+
+Arcade.run({
+  id: "mow-lane",
+  title: ["MOW", "LANE"],
+  blurb: "Swipe to send the mower across the lawn. It keeps rolling until it bumps a <b>flowerbed</b> or the fence. Mow every patch of grass before the clock runs out. Clear all <b>10 levels</b>.",
+  hint: "Phones: swipe anywhere · Arrow keys / WASD · Space to pause",
+  legend: [{ sprite: "mower", label: "rolls until it stops" }, { sprite: "tulip", label: "flowerbed: blocks" }],
+  width: W, height: H, dpad: false, swipeAnywhere: true, swipeStep: 18,
+  goal: () => totalGrass,
+  goalLabel: (l) => `mow a ${SIZES[l - 1][0]}×${SIZES[l - 1][1]} lawn`,
+  setup(level, kit) {
+    [cols, rows] = SIZES[level - 1];
+    C = Math.floor(Math.min((W - 20) / cols, (H - 60) / rows)); ox = Math.floor((W - cols * C) / 2); oy = 40 + Math.floor((H - 44 - rows * C) / 2);
+    generate(level); fx = [];
+    timeLeft = Math.round(grassLeft * L(level, 1.4, 0.75) + 12);
+  },
+  update(dt, kit) {
+    timeLeft -= dt;
+    kit.setInfo(`⏱ <b>${Math.max(0, Math.ceil(timeLeft))}</b>`);
+    if (timeLeft <= 0) { kit.toast("Out of time!"); kit.fail(); return; }
+    const m = mower.moving; if (!m) return;
+    m.t += dt * 14;
+    while (m.t >= 1 && m.i < m.cells.length) {
+      m.t -= 1; const [r, c] = m.cells[m.i++]; mower.r = r; mower.c = c;
+      if (grid[r][c] === 0) { grid[r][c] = 1; grassLeft--; kit.add(5); kit.collect(); if (kit.state !== "play") return; }
+    }
+    const [r0, c0] = m.i ? m.cells[m.i - 1] : [mower.r, mower.c], nx = m.i < m.cells.length ? m.cells[m.i] : null;
+    mower.x = nx ? c0 + (nx[1] - c0) * m.t : c0; mower.y = nx ? r0 + (nx[0] - r0) * m.t : r0;
+    if (m.i >= m.cells.length) { mower.moving = null; mower.x = mower.c; mower.y = mower.r; }
+  },
+  swipe(d, kit) { go(d, kit); },
+  key(k, kit) {
+    const m = { ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right" }[k];
+    if (m) { go(m, kit); return true; }
+    return false;
+  },
+  pointerDown(x, y, kit) {
+    const mx = ox + (mower.c + 0.5) * C, my = oy + (mower.r + 0.5) * C, dx = x - mx, dy = y - my;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < C * 0.5) return;
+    go(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"), kit);
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(ox - 6, oy - 6, cols * C + 12, rows * C + 12);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = ox + c * C, y = oy + r * C, v = grid[r][c];
+      if (v === 0) { ctx.fillStyle = "#3f9e3a"; ctx.fillRect(x, y, C, C); ctx.fillStyle = "#58b84a"; for (let i = 0; i < 4; i++) ctx.fillRect(x + 4 + i * (C - 8) / 4, y + C * 0.3 + (i % 2) * 6, 3, C * 0.4); }
+      else if (v === 1) { ctx.fillStyle = (r + c) % 2 ? "#a6e08a" : "#b8ea9c"; ctx.fillRect(x, y, C, C); }
+      else if (v === 3) { ctx.fillStyle = "#b8ea9c"; ctx.fillRect(x, y, C, C); ctx.fillStyle = "#cfd3e6"; ctx.beginPath(); ctx.ellipse(x + C / 2, y + C / 2, C * 0.3, C * 0.22, 0, 0, 7); ctx.fill(); }
+      else { ctx.fillStyle = "#8a4b1f"; ctx.fillRect(x, y, C, C); const s = C * 0.7; Arcade.drawSprite(ctx, ["tulip", "rose", "daisy", "sunflower"][(r * 7 + c * 3) % 4], x + (C - s) / 2, y + (C - s) / 2, s); }
+    }
+    const s = C * 0.86, mx = ox + (mower.x + 0.5) * C, my = oy + (mower.y + 0.5) * C;
+    ctx.save(); ctx.translate(mx, my); if (mower.face < 0) ctx.scale(-1, 1); Arcade.drawSprite(ctx, "mower", -s / 2, -s / 2, s); ctx.restore();
+    ctx.textAlign = "center"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const t = `GRASS LEFT ${grassLeft}  ·  TIME ${Math.max(0, Math.ceil(timeLeft))}`; ctx.strokeText(t, W / 2, 24); ctx.fillText(t, W / 2, 24);
+  },
+});
+</script>
+</body>
+</html>
