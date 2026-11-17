@@ -12,6 +12,10 @@
 const W = 360, H = 480, CAP = 4;
 const BLOOMS = ["rose", "sunflower", "bluebell", "tulip", "lily", "poppy", "daisy", "phantom"];
 const COLORS_BY_LEVEL = [3, 4, 4, 5, 5, 6, 6, 7, 7, 8];
+const LIMIT = [16, 23, 22, 29, 27, 32, 29, 33, 31, 36]; // moves per level (undo counts as a move)
+let limit = 99;
+function movesInfo(kit) { kit.setInfo("<b>" + Math.max(0, limit - moves) + "</b> left"); }
+function outOfMoves(kit) { if (!solvedT && moves >= limit) { kit.toast("Out of moves!"); kit.fail(); return true; } return false; }
 let vases, sel, moves, history, extraUsed, fx, anim, solvedT;
 const BTN = { reset: { x: 14, y: H - 44, w: 100, h: 32, t: "↺ RESET" }, undo: { x: 130, y: H - 44, w: 100, h: 32, t: "UNDO" }, add: { x: 246, y: H - 44, w: 100, h: 32, t: "+ VASE" } };
 
@@ -58,11 +62,11 @@ Arcade.run({
   legend: [{ sprite: "vase", label: "4 per vase" }, { sprite: "rose", label: "same on same" }],
   width: W, height: H,
   goal: () => 1,
-  goalLabel: (l) => `sort ${COLORS_BY_LEVEL[l - 1]} kinds of flowers`,
+  goalLabel: (l) => `sort ${COLORS_BY_LEVEL[l - 1]} kinds of flowers in ${LIMIT[l - 1]} moves`,
   setup(level, kit) {
     vases = shuffled(COLORS_BY_LEVEL[level - 1]);
     start = vases.map((v) => v.slice());
-    sel = -1; moves = 0; history = []; extraUsed = false; fx = []; anim = null; solvedT = 0;
+    sel = -1; moves = 0; history = []; extraUsed = false; fx = []; anim = null; solvedT = 0; limit = LIMIT[level - 1]; movesInfo(kit);
   },
   update(dt, kit) {
     fx = fx.filter((f) => kit.now - f.t < 700);
@@ -71,7 +75,7 @@ Arcade.run({
   pointerDown(x, y, kit) {
     if (solvedT) return;
     if (inBtn(BTN.reset, x, y)) { vases = start.map((v) => v.slice()); if (extraUsed) vases.push([]); history = []; sel = -1; return; }
-    if (inBtn(BTN.undo, x, y)) { if (history.length) { vases = history.pop(); sel = -1; } return; }
+    if (inBtn(BTN.undo, x, y)) { if (history.length) { vases = history.pop(); sel = -1; moves++; movesInfo(kit); outOfMoves(kit); } return; }
     if (inBtn(BTN.add, x, y)) {
       if (extraUsed) { kit.toast("Only one extra vase per level"); return; }
       extraUsed = true; vases.push([]); start.push([]); history = history.map((h) => h.concat([[]])); sel = -1; return;
@@ -86,8 +90,8 @@ Arcade.run({
           anim = { to: i, t: kit.now };
           const v = vases[i];
           if (v.length === CAP && v.every((c) => c === v[0])) { const lr = layoutVase(i); fx.push({ x: lr.x + lr.w / 2, y: lr.y - 24, t: kit.now, txt: "+bouquet!", c: "#ffd166" }); kit.add(25); }
-          sel = -1;
-          if (solved()) solvedT = kit.now;
+          sel = -1; movesInfo(kit);
+          if (solved()) solvedT = kit.now; else outOfMoves(kit);
         } else { if (vases[i].length) sel = i; else sel = -1; }
         return;
       }
@@ -117,7 +121,7 @@ Arcade.run({
     }
     ctx.globalAlpha = 1;
     ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
-    ctx.strokeText("MOVES " + moves, W / 2, 24); ctx.fillText("MOVES " + moves, W / 2, 24);
+    ctx.strokeText("MOVES " + moves + " / " + limit, W / 2, 24); ctx.fillText("MOVES " + moves + " / " + limit, W / 2, 24);
     ctx.font = '700 16px Fredoka, sans-serif';
     for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
     ctx.globalAlpha = 1;
