@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pollen Path · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* POLLEN PATH — draw one line from the hive that visits every flower once, without crossing itself. */
+const W = 360, H = 480, PUZZLES = 2;
+const SIZES = [[4, 4], [4, 5], [5, 5], [5, 6], [5, 6], [6, 6], [6, 7], [6, 7], [7, 7], [7, 8]];
+const FLOWERS = ["rose", "tulip", "daisy", "bluebell", "sunflower", "lily", "poppy"];
+let cols, rows, C, ox, oy, open, art, path, dragging, fx, doneT;
+
+function generate() {
+  let bestCells = null, bestN = 0;
+  for (let t = 0; t < 400; t++) {
+    const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
+    let r = Math.floor(Math.random() * rows), c = Math.floor(Math.random() * cols), n = 1; const cells = [[r, c]]; seen[r][c] = true;
+    const nb = (a, b) => [[a - 1, b], [a + 1, b], [a, b - 1], [a, b + 1]].filter(([x, y]) => x >= 0 && x < rows && y >= 0 && y < cols && !seen[x][y]);
+    for (;;) {
+      const opts = nb(r, c); if (!opts.length) break;
+      // Warnsdorff with a little randomness: prefer the neighbour with the fewest onward moves
+      opts.sort((p, q) => nb(...p).length - nb(...q).length + (Math.random() - 0.5) * 1.2);
+      [r, c] = opts[0]; seen[r][c] = true; cells.push([r, c]); n++;
+    }
+    if (n > bestN) { bestN = n; bestCells = cells; }
+    if (n >= rows * cols * 0.86 && n < rows * cols) { bestCells = cells; break; } // a few rocks make it look like a garden
+  }
+  open = Array.from({ length: rows }, () => Array(cols).fill(false));
+  for (const [a, b] of bestCells) open[a][b] = true;
+  art = Array.from({ length: rows }, () => Array.from({ length: cols }, () => Arcade.pick(FLOWERS)));
+  path = [bestCells[0]];
+}
+const total = () => open.flat().filter(Boolean).length;
+const cellAt = (x, y) => { const c = Math.floor((x - ox) / C), r = Math.floor((y - oy) / C); return r >= 0 && r < rows && c >= 0 && c < cols ? [r, c] : null; };
+const onPath = (r, c) => path.findIndex(([a, b]) => a === r && b === c);
+function stepTo(r, c, kit) {
+  if (doneT || !open[r][c]) return;
+  const [hr, hc] = path[path.length - 1];
+  if (Math.abs(hr - r) + Math.abs(hc - c) !== 1) return;
+  if (path.length > 1) { const [pr, pc] = path[path.length - 2]; if (pr === r && pc === c) { path.pop(); return; } }
+  if (onPath(r, c) >= 0) return;
+  path.push([r, c]); kit.add(2);
+  if (path.length === total()) { doneT = kit.now; kit.add(100 + 10 * total()); fx.push({ x: W / 2, y: oy - 14, t: kit.now, txt: "every flower!", c: "#ffd166" }); }
+}
+
+Arcade.run({
+  id: "pollen-path",
+  title: ["POLLEN", "PATH"],
+  blurb: "Help the bee visit <b>every flower</b> in one trip. Drag from the hive through the garden, one square at a time, without crossing your own path. Drag back to undo. Solve 2 gardens to clear a level, all <b>10 levels</b>.",
+  hint: "Drag from the bee · Arrow keys work too · Space to pause",
+  legend: [{ sprite: "hive", label: "start here" }, { sprite: "daisy", label: "visit each once" }],
+  width: W, height: H,
+  goal: () => PUZZLES,
+  goalLabel: (l) => `solve 2 gardens of ${SIZES[l - 1][0]}×${SIZES[l - 1][1]}`,
+  setup(level, kit) {
+    [cols, rows] = SIZES[level - 1];
+    C = Math.floor(Math.min((W - 24) / cols, (H - 90) / rows)); ox = Math.floor((W - cols * C) / 2); oy = 50 + Math.floor((H - 70 - rows * C) / 2);
+    generate(); dragging = false; fx = []; doneT = 0;
+  },
+  update(dt, kit) {
+    if (doneT && kit.now - doneT > 700) { doneT = 0; kit.collect(); if (kit.state === "play") generate(); }
+    fx = fx.filter((f) => kit.now - f.t < 900);
+  },
+  pointerDown(x, y, kit) {
+    const cell = cellAt(x, y); if (!cell) return;
+    const i = onPath(...cell);
+    if (i >= 0) { path.length = i + 1; dragging = true; } // grab the path anywhere; anything after it is undone
+    else { dragging = true; stepTo(...cell, kit); }
+  },
+  pointerMove(x, y, kit, down) {
+    if (!dragging || !down) return;
+    const cell = cellAt(x, y); if (!cell) return;
+    // ignore the very edges of a square so diagonal drags don't skip
+    const cx = ox + (cell[1] + 0.5) * C, cy = oy + (cell[0] + 0.5) * C;
+    if (Math.abs(x - cx) > C * 0.42 || Math.abs(y - cy) > C * 0.42) return;
+    stepTo(...cell, kit);
+  },
+  pointerUp() { dragging = false; },
+  key(k, kit) {
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
+    if (!d) { if (k === "Backspace" && path.length > 1) { path.pop(); return true; } return false; }
+    const [hr, hc] = path[path.length - 1], r = hr + d[0], c = hc + d[1];
+    if (r >= 0 && r < rows && c >= 0 && c < cols) stepTo(r, c, kit);
+    return true;
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.textAlign = "center"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const t = `FLOWERS ${path.length}/${total()}`; ctx.strokeText(t, W / 2, 26); ctx.fillText(t, W / 2, 26);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = ox + c * C, y = oy + r * C;
+      if (!open[r][c]) {
+        ctx.fillStyle = "#8b8fa8"; ctx.fillRect(x + 4, y + 6, C - 8, C - 10);
+        ctx.fillStyle = "#b8bccf"; ctx.fillRect(x + 6, y + 6, C - 14, C * 0.35);
+        continue;
+      }
+      ctx.fillStyle = "rgba(255,246,229,.4)"; ctx.fillRect(x + 2, y + 2, C - 4, C - 4);
+      const on = onPath(r, c) >= 0, s = C * 0.6;
+      if (r === path[0][0] && c === path[0][1]) Arcade.drawSprite(ctx, "hive", x + (C - s) / 2, y + (C - s) / 2, s);
+      else Arcade.drawSprite(ctx, art[r][c], x + (C - s) / 2, y + (C - s) / 2, s, { alpha: on ? 1 : 0.45 });
+    }
+    // the path
+    ctx.strokeStyle = doneT ? "#ffd166" : "rgba(242,169,0,.85)"; ctx.lineWidth = Math.max(6, C * 0.16); ctx.lineCap = ctx.lineJoin = "round";
+    ctx.beginPath();
+    path.forEach(([r, c], i) => { const x = ox + (c + 0.5) * C, y = oy + (r + 0.5) * C; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+    const [hr, hc] = path[path.length - 1], bs = C * 0.7;
+    Arcade.drawSprite(ctx, "bee", ox + (hc + 0.5) * C - bs / 2, oy + (hr + 0.5) * C - bs / 2 - Math.sin(kit.now / 150) * 2, bs);
+    ctx.font = '11px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 14); ctx.fillText(f.txt, f.x, f.y - k * 14); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
