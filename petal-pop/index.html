@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Pop · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* PETAL POP — aim and shoot petals into the cluster. 3 or more of a colour pop. */
+const W = 360, H = 480, R = 16, ROW_H = Math.round(R * 1.74), LEFT = 4, TOP = 6;
+const DANGER = H - 92, SX = W / 2, SY = H - 40;
+const COLORS = [
+  { c: "#ff8fc2", d: "#d94f8c" }, { c: "#ffd166", d: "#e0a400" }, { c: "#8fc7ff", d: "#4f7cff" },
+  { c: "#6fd24a", d: "#2e7d1f" }, { c: "#b9a7f5", d: "#8f7ae6" }, { c: "#ff7a3d", d: "#c94a12" },
+];
+const GOAL = [15, 20, 24, 28, 32, 36, 40, 45, 50, 55];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+let grid, shift, nColors, shot, cur, next, aim, aiming, misses, dropEvery, fx, falling;
+
+const cols = (r) => ((r + shift) % 2 ? 10 : 11);
+const cx = (r, c) => LEFT + R + c * 2 * R + ((r + shift) % 2 ? R : 0);
+const cy = (r) => TOP + R + r * ROW_H;
+function newRow() { const n = 11; return Array.from({ length: n }, () => Math.floor(Math.random() * nColors)); }
+function fitRow(r) { const n = cols(r); grid[r] = grid[r].slice(0, n); while (grid[r].length < n) grid[r].push(null); }
+function neighbours(r, c) {
+  const odd = (r + shift) % 2, out = [[r, c - 1], [r, c + 1]];
+  const d = odd ? [0, 1] : [-1, 0];
+  for (const dr of [-1, 1]) for (const dc of d) out.push([r + dr, c + dc]);
+  return out.filter(([a, b]) => a >= 0 && a < grid.length && b >= 0 && b < cols(a));
+}
+function colorsLeft() { const s = new Set(); grid.forEach((row) => row.forEach((v) => v != null && s.add(v))); return [...s]; }
+function pickColor() { const left = colorsLeft(); return left.length ? Arcade.pick(left) : Math.floor(Math.random() * nColors); }
+
+function addTopRow(kit) {
+  shift ^= 1; grid.unshift(newRow()); fitRow(0);
+  checkDanger(kit);
+}
+function lowestRow() { for (let r = grid.length - 1; r >= 0; r--) if (grid[r].some((v) => v != null)) return r; return -1; }
+function checkDanger(kit) {
+  const lr = lowestRow();
+  if (lr >= 0 && cy(lr) + R > DANGER) kit.fail();
+}
+
+function snap(x, y) {
+  // nearest empty cell to the landing point (rows grow as needed)
+  let best = null, bd = 1e9;
+  const r0 = Math.max(0, Math.round((y - TOP - R) / ROW_H) - 1);
+  for (let r = r0; r <= r0 + 2; r++) {
+    while (grid.length <= r) { grid.push([]); fitRow(grid.length - 1); }
+    for (let c = 0; c < cols(r); c++) {
+      if (grid[r][c] != null) continue;
+      const d = (cx(r, c) - x) ** 2 + (cy(r) - y) ** 2;
+      if (d < bd) { bd = d; best = [r, c]; }
+    }
+  }
+  return best;
+}
+function land(kit) {
+  const cell = snap(shot.x, shot.y); const col = shot.col; shot = null;
+  if (!cell) return;
+  const [r, c] = cell; grid[r][c] = col;
+  // matching group
+  const seen = new Set([r + "," + c]), group = [[r, c]], q = [[r, c]];
+  while (q.length) { const [a, b] = q.pop(); for (const [x, y] of neighbours(a, b)) { const k = x + "," + y; if (!seen.has(k) && grid[x][y] === col) { seen.add(k); group.push([x, y]); q.push([x, y]); } } }
+  let popped = 0;
+  if (group.length >= 3) {
+    for (const [a, b] of group) { fx.push({ x: cx(a, b), y: cy(a), col: grid[a][b], t: kit.now }); grid[a][b] = null; }
+    popped = group.length;
+    // anything no longer hanging from the top falls
+    const keep = new Set(), st = [];
+    for (let i = 0; i < cols(0); i++) if (grid[0] && grid[0][i] != null) { keep.add("0," + i); st.push([0, i]); }
+    while (st.length) { const [a, b] = st.pop(); for (const [x, y] of neighbours(a, b)) { const k = x + "," + y; if (!keep.has(k) && grid[x][y] != null) { keep.add(k); st.push([x, y]); } } }
+    for (let a = 0; a < grid.length; a++) for (let b = 0; b < cols(a); b++) if (grid[a][b] != null && !keep.has(a + "," + b)) {
+      falling.push({ x: cx(a, b), y: cy(a), vy: 0, col: grid[a][b] }); grid[a][b] = null; popped++;
+    }
+    kit.add(popped * 10 + Math.max(0, popped - 3) * 10);
+  }
+  while (grid.length && !grid[grid.length - 1].some((v) => v != null)) grid.pop();
+  if (!popped && ++misses >= dropEvery) { misses = 0; addTopRow(kit); }
+  else if (!colorsLeft().length) { for (let i = 0; i < 3; i++) addTopRow(kit); }
+  checkDanger(kit);
+  if (popped) kit.collect(popped);
+  cur = next; if (!colorsLeft().includes(cur) && colorsLeft().length) cur = pickColor(); next = pickColor();
+}
+function fire() {
+  if (shot || aim == null) return;
+  shot = { x: SX, y: SY, vx: Math.cos(aim) * 640, vy: -Math.sin(aim) * 640, col: cur };
+}
+function setAim(x, y) {
+  const a = Math.atan2(SY - y, x - SX);
+  aim = Math.max(0.17, Math.min(Math.PI - 0.17, a));
+}
+function petal(ctx, x, y, col, s) {
+  const k = COLORS[col]; s = s || 1;
+  ctx.fillStyle = k.d; ctx.beginPath(); ctx.arc(x, y, (R - 1) * s, 0, 7); ctx.fill();
+  ctx.fillStyle = k.c;
+  for (let i = 0; i < 5; i++) { const a = i * 1.2566 - 1.57; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 6 * s, y + Math.sin(a) * 6 * s, 7 * s, 0, 7); ctx.fill(); }
+  ctx.fillStyle = "#fff6e5"; ctx.beginPath(); ctx.arc(x, y, 4 * s, 0, 7); ctx.fill();
+}
+
+Arcade.run({
+  id: "petal-pop",
+  title: ["PETAL", "POP"],
+  blurb: "Aim and shoot petals into the bunch. Join <b>3 or more</b> of a colour to pop them, and anything left hanging falls too. Don't let the bunch reach the line! Clear all <b>10 levels</b>.",
+  hint: "Drag to aim, let go to shoot · or click · Space to pause",
+  legend: [{ sprite: "poppy", label: "3 in a row pop" }, { sprite: "daisy", label: "drops score big" }],
+  width: W, height: H,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `pop ${GOAL[l - 1]} petals${l === 4 ? " · a 5th colour!" : l === 8 ? " · 6 colours!" : ""}`,
+  setup(level, kit) {
+    nColors = level >= 8 ? 6 : level >= 4 ? 5 : 4;
+    shift = 0; grid = [];
+    const rows = Math.round(L(level, 4, 7));
+    for (let r = 0; r < rows; r++) { grid.push(newRow()); fitRow(r); }
+    dropEvery = Math.round(L(level, 8, 4));
+    shot = null; fx = []; falling = []; misses = 0; aim = Math.PI / 2; aiming = false;
+    cur = pickColor(); next = pickColor();
+  },
+  update(dt, kit) {
+    if (shot) {
+      const steps = 4;
+      for (let i = 0; i < steps && shot; i++) {
+        shot.x += (shot.vx * dt) / steps; shot.y += (shot.vy * dt) / steps;
+        if (shot.x < LEFT + R) { shot.x = LEFT + R; shot.vx *= -1; }
+        if (shot.x > W - LEFT - R) { shot.x = W - LEFT - R; shot.vx *= -1; }
+        if (shot.y <= TOP + R) { land(kit); break; }
+        let hit = false;
+        for (let r = 0; r < grid.length && !hit; r++) for (let c = 0; c < cols(r); c++) {
+          if (grid[r][c] == null) continue;
+          if ((cx(r, c) - shot.x) ** 2 + (cy(r) - shot.y) ** 2 < (2 * R - 4) ** 2) { hit = true; break; }
+        }
+        if (hit) land(kit);
+      }
+    }
+    for (const f of falling) { f.vy += 900 * dt; f.y += f.vy * dt; }
+    falling = falling.filter((f) => f.y < H + 30);
+    fx = fx.filter((f) => kit.now - f.t < 260);
+  },
+  pointerDown(x, y) { aiming = true; setAim(x, y); },
+  pointerMove(x, y, kit, down) { if (down || aiming) setAim(x, y); else setAim(x, y); },
+  pointerUp(x, y) { if (!aiming) return; aiming = false; setAim(x, y); fire(); },
+  key(k) {
+    if (k === "ArrowLeft") { aim = Math.min(Math.PI - 0.17, aim + 0.06); return true; }
+    if (k === "ArrowRight") { aim = Math.max(0.17, aim - 0.06); return true; }
+    if (k === "ArrowUp") { fire(); return true; }
+    return false;
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.fillStyle = "rgba(16,26,66,.18)"; ctx.fillRect(0, DANGER, W, 2);
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,90,95,.7)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, DANGER); ctx.lineTo(W, DANGER); ctx.stroke(); ctx.setLineDash([]);
+    for (let r = 0; r < grid.length; r++) for (let c = 0; c < cols(r); c++) if (grid[r][c] != null) petal(ctx, cx(r, c), cy(r), grid[r][c]);
+    for (const f of fx) { const k = (kit.now - f.t) / 260; ctx.globalAlpha = 1 - k; petal(ctx, f.x, f.y, f.col, 1 + k * 0.6); }
+    ctx.globalAlpha = 1;
+    for (const f of falling) petal(ctx, f.x, f.y, f.col, 0.9);
+    // aim guide
+    if (kit.state === "play" && !shot) {
+      ctx.fillStyle = "rgba(16,26,66,.55)";
+      let x = SX, y = SY, vx = Math.cos(aim), vy = -Math.sin(aim);
+      for (let i = 0; i < 22; i++) {
+        x += vx * 14; y += vy * 14;
+        if (x < LEFT + R || x > W - LEFT - R) { vx *= -1; x += vx * 14; }
+        if (y < TOP) break;
+        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill();
+      }
+    }
+    // shooter
+    Arcade.brick(ctx, SX - 34, SY + 10, 68, 22, "#a0612f", "#c98450", "#b97440", 3);
+    if (shot) petal(ctx, shot.x, shot.y, shot.col); else if (cur != null) petal(ctx, SX, SY, cur);
+    if (next != null) {
+      petal(ctx, SX + 70, SY + 8, next, 0.7);
+      ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
+      Arcade.ink(ctx); ctx.strokeText("NEXT", SX + 70, SY - 12); ctx.fillText("NEXT", SX + 70, SY - 12);
+    }
+    const left = dropEvery - misses;
+    ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = "left"; ctx.fillStyle = "#fff6e5";
+    Arcade.ink(ctx); ctx.strokeText("NEW ROW IN " + left + " MISS" + (left === 1 ? "" : "ES"), 8, H - 10); ctx.fillText("NEW ROW IN " + left + " MISS" + (left === 1 ? "" : "ES"), 8, H - 10);
+  },
+});
+</script>
+</body>
+</html>
