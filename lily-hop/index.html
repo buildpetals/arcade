@@ -113,7 +113,7 @@ Arcade.run({
     for (const f of flowers) Arcade.drawSprite(ctx, "lily", f.x - 14, f.row * C + 6, 28);
     const hopK = Math.min(1, (kit.now - frog.hopT) / 120), bob = Math.sin(hopK * Math.PI) * 6;
     Arcade.drawSprite(ctx, "frog", frog.x - 17, frog.row * C + 3 - bob, 34);
-    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    ctx.textAlign = "center"; ctx.font = '700 14px Fredoka, sans-serif';
     for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
     ctx.globalAlpha = 1;
   },
