@@ -10,7 +10,7 @@
 <script>
 /* GARDEN MATCH — swap neighbouring flowers to line up 3 or more of a kind. */
 const W = 360, H = 480, NC = 7, NR = 8, T = 46, OX = (W - NC * T) / 2, OY = 66;
-const GOAL = [24, 28, 32, 36, 40, 45, 50, 55, 60, 66];
+const GOAL = [22, 24, 28, 30, 35, 37, 41, 43, 47, 50];
 const MOVES = [8, 8, 9, 9, 11, 11, 12, 12, 13, 14];
 const ALL = ["rose", "tulip", "daisy", "bluebell", "sunflower", "phantom"];
 let grid, types, moves, sel, down, phase, phaseT, swapA, swapB, fx, combo, grabbed;
@@ -83,7 +83,7 @@ function startClear(kit) {
   fx.push({ x: sx / hit.size, y: sy / hit.size, t: kit.now, txt: (combo > 1 ? "x" + combo + " " : "") + "+" + pts });
   if (combo === 3) kit.toast("🌸 Combo x3!");
   phase = "clear"; phaseT = 0;
-  kit.collect(hit.size);
+  if (combo === 1) kit.collect(hit.size); // only flowers from your own swap count; cascades just score combo points
 }
 function collapse() {
   for (let c = 0; c < NC; c++) {
