@@ -70,14 +70,13 @@ Arcade.run({
   draw(ctx, kit) {
     Arcade.grid(ctx, W, H, 24);
     ctx.save(); ctx.translate(0, cam);
-    ctx.fillStyle = "#2b3a7a"; ctx.fillRect(0, GROUND, W, H);
-    ctx.fillStyle = "#3a4b8f"; for (let x = 0; x < W; x += 24) ctx.fillRect(x + 2, GROUND + 4, 20, 6);
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(-10, GROUND, W + 20, H, 16), "#9fd59a", 1.5);
     tower.forEach((b, i) => { const c = i === 0 ? ["#a0612f", "#c98450", "#b97440"] : color(b.ci); Arcade.brick(ctx, b.x, b.y, b.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(b.w / 28))); });
     for (const f of falling) { const c = color(f.ci); Arcade.brick(ctx, f.x, f.y, f.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(f.w / 28))); }
     if (mover) { const c = color(mover.ci); Arcade.brick(ctx, mover.x, mover.y, mover.w, BH, c[0], c[1], c[2], Math.max(1, Math.round(mover.w / 28))); }
     if (flowerKey) { const t = tower[tower.length - 1]; Arcade.drawSprite(ctx, flowerKey, t.x + t.w / 2 - 22, t.y - 44, 44); }
     ctx.restore();
-    ctx.fillStyle = "rgba(255,246,229,.85)"; ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "left";
+    ctx.fillStyle = "#fff6e5"; ctx.font = '700 14px Fredoka, sans-serif'; ctx.textAlign = "left";
     (Arcade.ink(ctx), ctx.strokeText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22), ctx.fillText("HEIGHT " + (tower.length - 1) + "/" + kit.goal(), 12, 22));
   },
 });
