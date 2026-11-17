@@ -10,19 +10,19 @@
 <script>
 /* BEE LINE — tap to flap. Fly the bee through the gaps in the flower stems. */
 const W = 360, H = 480, GROUND = H - 28, BEE = 30, STEM_W = 50, BEE_X = 86;
-const GOAL = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const GOAL = [8, 10, 12, 14, 16, 18, 20, 23, 26, 30];
 const HEADS = ["rose", "tulip", "daisy", "sunflower", "bluebell"];
 const STEM = ["#2b8a44", "#3a9e55", "#4cc36a"];
 let bee, stems, pollen, fx, started, safeUntil;
 
-const gapOf = (l) => Arcade.lerpLevel(l, 172, 122);
-const speedOf = (l) => Arcade.lerpLevel(l, 112, 184);
-const spaceOf = (l) => Arcade.lerpLevel(l, 215, 170);
+const gapOf = (l) => Arcade.lerpLevel(l, 165, 105);
+const speedOf = (l) => Arcade.lerpLevel(l, 115, 215);
+const spaceOf = (l) => Arcade.lerpLevel(l, 215, 165);
 
 function addStem(kit, x) {
   const g = gapOf(kit.level), m = 44, gy = Arcade.rand(m, GROUND - m - g);
   const s = { x, gy, base: gy, g, head: Arcade.pick(HEADS), passed: false, amp: 0, ph: Arcade.rand(0, 6.28) };
-  if (kit.level >= 7) s.amp = Math.max(0, Math.min(Arcade.lerpLevel(kit.level, 16, 34), gy - 20, GROUND - 20 - (gy + g)));
+  if (kit.level >= 5) s.amp = Math.max(0, Math.min(Arcade.lerpLevel(kit.level, 16, 40), gy - 20, GROUND - 20 - (gy + g)));
   stems.push(s);
   if (Math.random() < 0.6) pollen.push({ x: x + STEM_W / 2 - 12, stem: s, s: Math.random() < 0.15 ? "phantom" : "daisy" });
 }
@@ -33,7 +33,7 @@ function hit(kit) {
   if (kit.now < safeUntil) { if (bee.y + BEE >= GROUND) bee.vy = -260; return; }
   kit.loseLife();
   if (kit.state !== "play") return;
-  safeUntil = kit.now + 1600; started = false;
+  safeUntil = kit.now + 1000; started = false;
   bee.y = H / 2 - BEE / 2; bee.vy = 0;
   stems = stems.filter((s) => s.x > BEE_X + 150 || s.x + STEM_W < BEE_X - 10); // clear the way ahead
   pollen = pollen.filter((p) => stems.includes(p.stem));
@@ -56,7 +56,7 @@ Arcade.run({
   legend: [{ sprite: "bee", label: "you" }, { sprite: "daisy", label: "+5" }, { sprite: "phantom", label: "+25 ✨" }, { sprite: "tulip", label: "fly the gaps" }],
   width: W, height: H, lives: 3,
   goal: (l) => GOAL[l - 1],
-  goalLabel: (l) => `fly through ${GOAL[l - 1]} gaps${l >= 7 ? " · swaying stems!" : ""}`,
+  goalLabel: (l) => `fly through ${GOAL[l - 1]} gaps${l >= 5 ? " · swaying stems!" : ""}`,
   setup(level, kit) {
     bee = { x: BEE_X, y: H / 2 - BEE / 2, vy: 0 };
     stems = []; pollen = []; fx = []; started = false; safeUntil = 0;
@@ -67,7 +67,7 @@ Arcade.run({
     if (bee.y < 0) { bee.y = 0; bee.vy = 0; }
     if (bee.y + BEE > GROUND) { bee.y = GROUND - BEE; hit(kit); return; }
 
-    const sp = speedOf(kit.level), gap = spaceOf(kit.level);
+    const sp = speedOf(kit.level) * Arcade.speedUp(kit, 0.01, 0.2), gap = spaceOf(kit.level);
     for (const s of stems) { s.x -= sp * dt; if (s.amp) s.gy = s.base + Math.sin(kit.now / 700 + s.ph) * s.amp; }
     for (const p of pollen) p.x -= sp * dt;
     const last = stems[stems.length - 1];
