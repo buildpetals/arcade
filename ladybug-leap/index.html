@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ladybug Leap · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* LADYBUG LEAP — bounce up the leaves as high as you can. Hold left or right to steer. */
+const W = 360, H = 480, BOUNCE = -560, GRAV = 1100, LW = 64, LH = 12, STEP = 10; // STEP px of climb = 1 cm
+const GOAL = [40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+Arcade.variant("bee", "wasp", { y: "#ff7a3d" }, "Wasp");
+let lb, leaves, wasps, camY, steer, best, fx, topY, gap;
+
+function addLeaf(y, level) {
+  const r = Math.random(), kind = level >= 6 && r < L(level, 0.1, 0.25) ? "crumbly" : level >= 4 && r < L(level, 0.35, 0.5) ? "moving" : "leaf";
+  leaves.push({ x: Arcade.rand(8, W - LW - 8), y, kind, vx: kind === "moving" ? Arcade.rand(40, L(level, 50, 110)) * (Math.random() < 0.5 ? -1 : 1) : 0, gone: 0 });
+}
+function fill(level) {
+  while (topY > camY - 80) {
+    topY -= Arcade.rand(gap * 0.7, gap);
+    addLeaf(topY, level);
+    if (level >= 3 && Math.random() < L(level, 0.05, 0.14)) wasps.push({ x: Arcade.rand(30, W - 30), y: topY - gap / 2, vx: Arcade.rand(50, 100) * (Math.random() < 0.5 ? -1 : 1) });
+  }
+  leaves = leaves.filter((l) => l.y < camY + H + 40);
+  wasps = wasps.filter((w) => w.y < camY + H + 40);
+}
+function respawn(kit) {
+  // put the ladybug back on the lowest leaf still on screen
+  const vis = leaves.filter((l) => !l.gone && l.y > camY + H * 0.4 && l.y < camY + H - 20).sort((a, b) => b.y - a.y)[0];
+  if (vis) { lb.x = vis.x + LW / 2; lb.y = vis.y - 14; } else { lb.y = camY + H - 80; leaves.push({ x: lb.x - LW / 2, y: lb.y + 14, kind: "leaf", vx: 0, gone: 0 }); }
+  lb.vy = BOUNCE; lb.safe = kit.now + 1200;
+}
+
+Arcade.run({
+  id: "ladybug-leap",
+  title: ["LADYBUG", "LEAP"],
+  blurb: "Bounce the ladybug up the garden, leaf by leaf! Hold the <b>left or right</b> side of the screen to steer. Falling or bumping a wasp costs a heart. Climb high enough to clear each level, all <b>10 levels</b>.",
+  hint: "Hold left / right side to steer · Arrow keys · Space to pause",
+  legend: [{ sprite: "ladybug", label: "you" }, { sprite: "wasp", label: "wasp: avoid" }],
+  width: W, height: H, lives: 3,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `climb ${GOAL[l - 1]} cm${l === 3 ? " · wasps!" : l === 4 ? " · moving leaves" : l === 6 ? " · crumbly leaves" : ""}`,
+  setup(level, kit) {
+    gap = L(level, 70, 105);
+    lb = { x: W / 2, y: H - 70, vy: BOUNCE, safe: 0 }; camY = 0; steer = 0; best = 0; fx = [];
+    leaves = [{ x: W / 2 - LW / 2, y: H - 40, kind: "leaf", vx: 0, gone: 0 }]; wasps = []; topY = H - 40;
+    fill(level);
+  },
+  update(dt, kit) {
+    const k = Arcade.keys;
+    const dir = (k.ArrowLeft || k.a || k.A ? -1 : 0) + (k.ArrowRight || k.d || k.D ? 1 : 0) || steer;
+    lb.x += dir * 230 * dt;
+    if (lb.x < -10) lb.x = W + 10; if (lb.x > W + 10) lb.x = -10;
+    const prevY = lb.y;
+    lb.vy += GRAV * dt; lb.y += lb.vy * dt;
+    for (const l of leaves) {
+      if (l.vx) { l.x += l.vx * dt; if (l.x < 4 || l.x + LW > W - 4) l.vx *= -1; }
+      if (l.gone || lb.vy <= 0) continue;
+      if (prevY + 12 <= l.y && lb.y + 12 >= l.y && lb.x > l.x - 6 && lb.x < l.x + LW + 6) {
+        lb.y = l.y - 12; lb.vy = BOUNCE;
+        if (l.kind === "crumbly") l.gone = kit.now;
+      }
+    }
+    leaves = leaves.filter((l) => !l.gone || kit.now - l.gone < 300);
+    for (const w of wasps) {
+      w.x += w.vx * dt; if (w.x < 16 || w.x > W - 16) w.vx *= -1;
+      if (kit.now > lb.safe && Math.hypot(w.x - lb.x, w.y - lb.y) < 22) {
+        fx.push({ x: lb.x, y: lb.y - camY - 20, t: kit.now, txt: "ouch!", c: "#ff8fc2" });
+        kit.loseLife(); if (kit.state === "play") respawn(kit); return;
+      }
+    }
+    // camera follows upward only
+    if (lb.y - camY < H * 0.42) camY = lb.y - H * 0.42;
+    const climbed = Math.floor((H - 70 - lb.y) / STEP);
+    if (climbed > best) { const gain = climbed - best; best = climbed; kit.add(gain); kit.collect(gain); if (kit.state !== "play") return; }
+    if (lb.y - camY > H + 30) {
+      fx.push({ x: W / 2, y: H - 60, t: kit.now, txt: "whoops!", c: "#ff8fc2" });
+      kit.loseLife(); if (kit.state === "play") respawn(kit);
+    }
+    fill(kit.level);
+    fx = fx.filter((f) => kit.now - f.t < 800);
+  },
+  pointerDown(x) { steer = x < W / 2 ? -1 : 1; },
+  pointerMove(x, y, kit, down) { if (down) steer = x < W / 2 ? -1 : 1; },
+  pointerUp() { steer = 0; },
+  draw(ctx, kit) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#9fd8ff"); g.addColorStop(1, "#c8f0b0"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // a tall stem in the background
+    ctx.fillStyle = "rgba(46,125,31,.25)"; ctx.fillRect(W / 2 - 5, 0, 10, H);
+    ctx.save(); ctx.translate(0, -camY);
+    for (const l of leaves) {
+      const a = l.gone ? Math.max(0, 1 - (kit.now - l.gone) / 300) : 1;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = l.kind === "crumbly" ? "#c9a24a" : l.kind === "moving" ? "#4f9fe0" : "#2e7d1f";
+      ctx.beginPath(); ctx.ellipse(l.x + LW / 2, l.y + 4, LW / 2, LH / 2 + 2, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = l.kind === "crumbly" ? "#e8c56a" : l.kind === "moving" ? "#8fc7ff" : "#6fd24a";
+      ctx.beginPath(); ctx.ellipse(l.x + LW / 2, l.y + 2, LW / 2 - 3, LH / 2, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(l.x + 8, l.y + 2); ctx.lineTo(l.x + LW - 8, l.y + 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    for (const w of wasps) { ctx.save(); ctx.translate(w.x, w.y); if (w.vx < 0) ctx.scale(-1, 1); Arcade.drawSprite(ctx, "wasp", -15, -15, 30); ctx.restore(); }
+    const blink = kit.now < lb.safe && Math.floor(kit.now / 100) % 2;
+    if (!blink) Arcade.drawSprite(ctx, "ladybug", lb.x - 15, lb.y - 15, 30);
+    ctx.restore();
+    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const t = best + " cm"; ctx.strokeText(t, W / 2, 24); ctx.fillText(t, W / 2, 24);
+    for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
