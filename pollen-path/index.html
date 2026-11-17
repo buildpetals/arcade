@@ -12,7 +12,9 @@
 const W = 360, H = 480, PUZZLES = 2;
 const SIZES = [[4, 4], [4, 5], [5, 5], [5, 6], [5, 6], [6, 6], [6, 7], [6, 7], [7, 7], [7, 8]];
 const FLOWERS = ["rose", "tulip", "daisy", "bluebell", "sunflower", "lily", "poppy"];
-let cols, rows, C, ox, oy, open, art, path, dragging, fx, doneT;
+let cols, rows, C, ox, oy, open, art, path, dragging, fx, doneT, timeLeft = 0;
+// seconds per garden: 20s + 1.2s a square at level 1, easing to 10s + 0.9s a square at level 10
+function resetClock(level) { timeLeft = Math.round(Arcade.lerpLevel(level, 20, 10) + total() * Arcade.lerpLevel(level, 1.2, 0.9)); }
 
 function generate() {
   let bestCells = null, bestN = 0;
@@ -55,14 +57,18 @@ Arcade.run({
   legend: [{ sprite: "hive", label: "start here" }, { sprite: "daisy", label: "visit each once" }],
   width: W, height: H,
   goal: () => PUZZLES,
-  goalLabel: (l) => `solve 2 gardens of ${SIZES[l - 1][0]}×${SIZES[l - 1][1]}`,
+  goalLabel: (l) => `solve 2 gardens of ${SIZES[l - 1][0]}×${SIZES[l - 1][1]} against the clock`,
   setup(level, kit) {
     [cols, rows] = SIZES[level - 1];
     C = Math.floor(Math.min((W - 24) / cols, (H - 90) / rows)); ox = Math.floor((W - cols * C) / 2); oy = 50 + Math.floor((H - 70 - rows * C) / 2);
-    generate(); dragging = false; fx = []; doneT = 0;
+    generate(); dragging = false; fx = []; doneT = 0; resetClock(level); kit.setInfo("⏱ <b>" + timeLeft + "</b>");
   },
   update(dt, kit) {
-    if (doneT && kit.now - doneT > 700) { doneT = 0; kit.collect(); if (kit.state === "play") generate(); }
+    if (doneT && kit.now - doneT > 700) { doneT = 0; kit.collect(); if (kit.state === "play") { generate(); resetClock(kit.level); } }
+    if (!doneT) {
+      timeLeft -= dt; kit.setInfo("⏱ <b>" + Math.max(0, Math.ceil(timeLeft)) + "</b>");
+      if (timeLeft <= 0) { kit.toast("Out of time!"); kit.fail(); return; }
+    }
     fx = fx.filter((f) => kit.now - f.t < 900);
   },
   pointerDown(x, y, kit) {
