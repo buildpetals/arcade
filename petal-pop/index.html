@@ -172,11 +172,11 @@ Arcade.run({
     if (shot) petal(ctx, shot.x, shot.y, shot.col); else if (cur != null) petal(ctx, SX, SY, cur);
     if (next != null) {
       petal(ctx, SX + 70, SY + 8, next, 0.7);
-      ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
+      ctx.font = '700 12px Fredoka, sans-serif'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
       Arcade.ink(ctx); ctx.strokeText("NEXT", SX + 70, SY - 12); ctx.fillText("NEXT", SX + 70, SY - 12);
     }
     const left = dropEvery - misses;
-    ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = "left"; ctx.fillStyle = "#fff6e5";
+    ctx.font = '700 12px Fredoka, sans-serif'; ctx.textAlign = "left"; ctx.fillStyle = "#fff6e5";
     Arcade.ink(ctx); ctx.strokeText("NEW ROW IN " + left + " MISS" + (left === 1 ? "" : "ES"), 8, H - 10); ctx.fillText("NEW ROW IN " + left + " MISS" + (left === 1 ? "" : "ES"), 8, H - 10);
   },
 });
