@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Lily Hop · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* LILY HOP — hop the frog across the pond on drifting lily pads. */
+const W = 360, H = 480, C = 40, COLS = 9, ROWS = 12;
+const GOAL = [2, 2, 3, 3, 3, 4, 4, 4, 5, 5];
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+let lanes, frog, fx, flowers;
+
+function buildLanes(level) {
+  // row 11 = start bank, row 0 = far bank; water rows in between, with a grassy rest strip on longer ponds
+  lanes = [];
+  const rest = level >= 4 ? 6 : -1;
+  for (let r = 0; r < ROWS; r++) {
+    if (r === 0 || r === ROWS - 1 || r === rest) { lanes.push({ kind: "bank" }); continue; }
+    if (level < 3 && (r === 1 || r === 10)) { lanes.push({ kind: "bank" }); continue; }
+    const dir = r % 2 ? 1 : -1, sp = L(level, 28, 70) * Arcade.rand(0.75, 1.25) * dir;
+    const len = Math.max(1, Math.round(L(level, 3, 1.6) + Math.random() * 1.2)), gap = Math.round(L(level, 2, 3.4) + Math.random());
+    const pads = [], span = (len + gap) * C;
+    const n = Math.ceil((W + span * 2) / span), off = Math.random() * span;
+    for (let i = 0; i < n; i++) pads.push({ x: -span + off + i * span, len });
+    lanes.push({ kind: "water", sp, pads, span: n * span });
+  }
+}
+function resetFrog() { frog = { x: Math.floor(COLS / 2) * C + C / 2, row: ROWS - 1, hopT: 0, best: ROWS - 1 }; }
+function padUnder(row, x) {
+  const ln = lanes[row]; if (ln.kind !== "water") return null;
+  return ln.pads.find((p) => x >= p.x + 4 && x <= p.x + p.len * C - 4) || null;
+}
+function hop(dir, kit) {
+  if (kit.now - frog.hopT < 110) return;
+  let { x, row } = frog;
+  if (dir === "up") row--; else if (dir === "down") row++; else if (dir === "left") x -= C; else if (dir === "right") x += C;
+  if (row > ROWS - 1 || x < C / 2 - 1 || x > W - C / 2 + 1) return;
+  frog.x = x; frog.row = row; frog.hopT = kit.now;
+  if (lanes[row].kind === "bank") frog.x = Math.round((frog.x - C / 2) / C) * C + C / 2;
+  if (row < frog.best) { frog.best = row; kit.add(5); }
+  const fi = flowers.findIndex((f) => f.row === row && Math.abs(f.x - frog.x) < C * 0.6);
+  if (fi >= 0) { flowers.splice(fi, 1); kit.add(25); fx.push({ x: frog.x, y: row * C, t: kit.now, txt: "+25", c: "#ffd166" }); }
+  if (row === 0) {
+    kit.add(100); fx.push({ x: frog.x, y: C, t: kit.now, txt: "made it!", c: "#ffd166" });
+    resetFrog(); placeFlowers(); kit.collect();
+  }
+}
+function placeFlowers() {
+  flowers = [];
+  for (let i = 0; i < 2; i++) { const banks = lanes.map((l, r) => (l.kind === "bank" && r > 0 && r < ROWS - 1 ? r : -1)).filter((r) => r >= 0); if (!banks.length) return; flowers.push({ row: Arcade.pick(banks), x: Math.floor(Math.random() * COLS) * C + C / 2 }); }
+}
+function splash(kit) {
+  fx.push({ x: frog.x, y: frog.row * C + C / 2, t: kit.now, txt: "splash!", c: "#8fc7ff" });
+  kit.loseLife(); if (kit.state === "play") resetFrog();
+}
+
+Arcade.run({
+  id: "lily-hop",
+  title: ["LILY", "HOP"],
+  blurb: "Help the frog across the pond! Hop onto the <b>drifting lily pads</b>, ride them, and reach the far bank. Fall in the water or drift off the edge and you lose a heart. Clear all <b>10 levels</b>.",
+  hint: "Phones: swipe anywhere to hop · Arrow keys / WASD · Space to pause",
+  legend: [{ sprite: "frog", label: "reach the top" }, { sprite: "lily", label: "+25" }],
+  width: W, height: H, lives: 3, dpad: false, swipeAnywhere: true, swipeStep: 24,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `cross the pond ${GOAL[l - 1]} times${l === 3 ? " · wider pond!" : l === 4 ? " · rest on the island" : ""}`,
+  setup(level, kit) { buildLanes(level); resetFrog(); fx = []; placeFlowers(); },
+  update(dt, kit) {
+    for (const ln of lanes) if (ln.kind === "water") for (const p of ln.pads) {
+      p.x += ln.sp * dt;
+      if (ln.sp > 0 && p.x > W + C) p.x -= ln.span;
+      if (ln.sp < 0 && p.x + p.len * C < -C) p.x += ln.span;
+    }
+    const ln = lanes[frog.row];
+    if (ln.kind === "water" && kit.now - frog.hopT > 120) {
+      const p = padUnder(frog.row, frog.x);
+      if (!p) splash(kit);
+      else { frog.x += ln.sp * dt; if (frog.x < 6 || frog.x > W - 6) splash(kit); }
+    }
+    fx = fx.filter((f) => kit.now - f.t < 800);
+  },
+  swipe(d, kit) { hop(d, kit); },
+  key(k, kit) {
+    const m = { ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right" }[k];
+    if (m) { hop(m, kit); return true; }
+    return false;
+  },
+  pointerDown(x, y, kit) {
+    // tap: hop toward the tap (mostly for mice; phones swipe)
+    const fy = frog.row * C + C / 2, dx = x - frog.x, dy = y - fy;
+    if (Math.abs(dx) < C * 0.6 && Math.abs(dy) < C * 0.6) return;
+    hop(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"), kit);
+  },
+  draw(ctx, kit) {
+    for (let r = 0; r < ROWS; r++) {
+      const ln = lanes[r], y = r * C;
+      if (ln.kind === "bank") { ctx.fillStyle = r % 2 ? "#9fd88a" : "#8fcf7a"; ctx.fillRect(0, y, W, C); }
+      else {
+        ctx.fillStyle = r % 2 ? "#4f9fe0" : "#5aa9e8"; ctx.fillRect(0, y, W, C);
+        ctx.fillStyle = "rgba(255,255,255,.18)";
+        for (let i = 0; i < 4; i++) { const wx = ((kit.now / 40) * (ln.sp > 0 ? 1 : -1) + i * 97 + r * 31) % (W + 40); ctx.fillRect((wx + W + 40) % (W + 40) - 20, y + 12 + (i % 2) * 14, 14, 2); }
+        for (const p of ln.pads) for (let i = 0; i < p.len; i++) {
+          const px = p.x + i * C + C / 2, py = y + C / 2;
+          ctx.fillStyle = "#2e7d1f"; ctx.beginPath(); ctx.arc(px, py + 2, C * 0.44, 0, 7); ctx.fill();
+          ctx.fillStyle = "#6fd24a"; ctx.beginPath(); ctx.arc(px, py, C * 0.44, 0.35, 6.0); ctx.lineTo(px, py); ctx.fill();
+        }
+      }
+    }
+    ctx.fillStyle = "rgba(255,209,102,.35)"; ctx.fillRect(0, 0, W, C);
+    for (const f of flowers) Arcade.drawSprite(ctx, "lily", f.x - 14, f.row * C + 6, 28);
+    const hopK = Math.min(1, (kit.now - frog.hopT) / 120), bob = Math.sin(hopK * Math.PI) * 6;
+    Arcade.drawSprite(ctx, "frog", frog.x - 17, frog.row * C + 3 - bob, 34);
+    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
