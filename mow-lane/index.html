@@ -87,17 +87,17 @@ Arcade.run({
   },
   draw(ctx, kit) {
     Arcade.grid(ctx, W, H, 24);
-    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(ox - 6, oy - 6, cols * C + 12, rows * C + 12);
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(ox - 7, oy - 7, cols * C + 14, rows * C + 14, 14), "#c99a6b", 1.6);
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
       const x = ox + c * C, y = oy + r * C, v = grid[r][c];
-      if (v === 0) { ctx.fillStyle = "#3f9e3a"; ctx.fillRect(x, y, C, C); ctx.fillStyle = "#58b84a"; for (let i = 0; i < 4; i++) ctx.fillRect(x + 4 + i * (C - 8) / 4, y + C * 0.3 + (i % 2) * 6, 3, C * 0.4); }
-      else if (v === 1) { ctx.fillStyle = (r + c) % 2 ? "#a6e08a" : "#b8ea9c"; ctx.fillRect(x, y, C, C); }
-      else if (v === 3) { ctx.fillStyle = "#b8ea9c"; ctx.fillRect(x, y, C, C); ctx.fillStyle = "#cfd3e6"; ctx.beginPath(); ctx.ellipse(x + C / 2, y + C / 2, C * 0.3, C * 0.22, 0, 0, 7); ctx.fill(); }
-      else { ctx.fillStyle = "#8a4b1f"; ctx.fillRect(x, y, C, C); const s = C * 0.7; Arcade.drawSprite(ctx, ["tulip", "rose", "daisy", "sunflower"][(r * 7 + c * 3) % 4], x + (C - s) / 2, y + (C - s) / 2, s); }
+      if (v === 0) { ctx.fillStyle = "#5fae5a"; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, C - 2, C - 2, 6); ctx.fill(); ctx.strokeStyle = "#7cc76f"; ctx.lineWidth = 2; ctx.lineCap = "round"; for (let i = 0; i < 3; i++) { const gx = x + C * (0.28 + i * 0.22); ctx.beginPath(); ctx.moveTo(gx, y + C * 0.72); ctx.lineTo(gx + (i - 1) * 2, y + C * 0.32); ctx.stroke(); } }
+      else if (v === 1) { ctx.fillStyle = (r + c) % 2 ? "#bfe7a8" : "#cdeeb8"; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, C - 2, C - 2, 6); ctx.fill(); }
+      else if (v === 3) { ctx.fillStyle = "#cdeeb8"; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, C - 2, C - 2, 6); ctx.fill(); Arcade.softPaper.piece(ctx, Arcade.softPaper.ell(x + C / 2, y + C / 2, C * 0.3, C * 0.22), "#d9dbe8", 1); }
+      else { ctx.fillStyle = "#d9b48a"; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, C - 2, C - 2, 6); ctx.fill(); const s = C * 0.7; Arcade.drawSprite(ctx, ["tulip", "rose", "daisy", "sunflower"][(r * 7 + c * 3) % 4], x + (C - s) / 2, y + (C - s) / 2, s); }
     }
     const s = C * 0.86, mx = ox + (mower.x + 0.5) * C, my = oy + (mower.y + 0.5) * C;
     ctx.save(); ctx.translate(mx, my); if (mower.face < 0) ctx.scale(-1, 1); Arcade.drawSprite(ctx, "mower", -s / 2, -s / 2, s); ctx.restore();
-    ctx.textAlign = "center"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    ctx.textAlign = "center"; ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
     const t = `GRASS LEFT ${grassLeft}  ·  TIME ${Math.max(0, Math.ceil(timeLeft))}`; ctx.strokeText(t, W / 2, 24); ctx.fillText(t, W / 2, 24);
   },
 });
