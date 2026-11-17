@@ -87,7 +87,7 @@ Arcade.run({
       ctx.fillStyle = "#8a3f1c"; ctx.fillRect(p.x - 32, p.y + 6, 64, 9);
       ctx.fillStyle = "#c96a3a"; ctx.beginPath(); ctx.moveTo(p.x - 28, p.y + 15); ctx.lineTo(p.x + 28, p.y + 15); ctx.lineTo(p.x + 22, p.y + 44); ctx.lineTo(p.x - 22, p.y + 44); ctx.fill();
     }
-    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    ctx.textAlign = "center"; ctx.font = '700 14px Fredoka, sans-serif';
     for (const e of fx) { const k = (kit.now - e.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = e.c; Arcade.ink(ctx); ctx.strokeText(e.txt, e.x, e.y - k * 16); ctx.fillText(e.txt, e.x, e.y - k * 16); }
     ctx.globalAlpha = 1;
   },
