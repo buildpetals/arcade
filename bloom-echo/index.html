@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bloom Echo · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* BLOOM ECHO — watch the flowers light up, then tap them back in the same order. */
+const W = 360, H = 480;
+const ROUNDS = 3;
+const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
+const FLOWERS = ["rose", "sunflower", "bluebell", "tulip", "lily", "poppy"];
+let pads, seq, step, phase, phaseT, showIdx, lit, litT, round, baseLen, fx, wrongT;
+
+function layout(n) {
+  pads = [];
+  const colsN = n <= 4 ? 2 : 3, rowsN = 2, pw = n <= 4 ? 130 : 96, ph = 150;
+  const gx = (W - colsN * pw) / (colsN + 1), top = 120, gy = 30;
+  for (let i = 0; i < n; i++) {
+    const c = i % colsN, r = Math.floor(i / colsN);
+    pads.push({ x: gx + c * (pw + gx), y: top + r * (ph + gy), w: pw, h: ph, sprite: FLOWERS[i] });
+  }
+}
+function newRound(kit) {
+  const len = baseLen + round;
+  while (seq.length < len) seq.push(Math.floor(Math.random() * pads.length));
+  seq.length = len;
+  step = 0; phase = "show"; phaseT = kit.now + 650; showIdx = -1; lit = -1;
+}
+const startLen = (l) => 2 + Math.floor(l * 0.8);
+function speed(kit) { return L(kit.level, 620, 330); }
+
+Arcade.run({
+  id: "bloom-echo",
+  title: ["BLOOM", "ECHO"],
+  blurb: "Watch the flowers light up, then tap them back in the <b>same order</b>. Each round adds one more. Repeat 3 patterns to clear a level, and clear all <b>10 levels</b>.",
+  hint: "Watch, then tap the flowers · keys 1–6 work too · Space to pause",
+  legend: [{ sprite: "rose", label: "watch" }, { sprite: "sunflower", label: "repeat" }, { sprite: "lily", label: "more at Lv 5" }],
+  width: W, height: H, lives: 3,
+  goal: () => ROUNDS,
+  goalLabel: (l) => `repeat 3 patterns, starting with ${startLen(l)} flowers${l === 5 ? " · 6 flowers now!" : ""}`,
+  setup(level, kit) {
+    layout(level >= 5 ? 6 : 4);
+    baseLen = startLen(level); round = 0; seq = []; fx = []; lit = -1; wrongT = 0;
+    phase = "wait"; phaseT = 0;
+  },
+  update(dt, kit) {
+    if (phase === "wait") { newRound(kit); return; }
+    if (phase === "show") {
+      const sp = speed(kit);
+      if (kit.now >= phaseT) {
+        if (lit >= 0) { lit = -1; phaseT = kit.now + sp * 0.35; return; }
+        showIdx++;
+        if (showIdx >= seq.length) { phase = "input"; lit = -1; return; }
+        lit = seq[showIdx]; litT = kit.now; phaseT = kit.now + sp;
+      }
+    }
+    if (phase === "input" && lit >= 0 && kit.now - litT > 220) lit = -1;
+    if (phase === "next" && kit.now >= phaseT) { phase = "wait"; }
+    if (phase === "retry" && kit.now >= phaseT) { step = 0; phase = "show"; phaseT = kit.now + 400; showIdx = -1; lit = -1; }
+    fx = fx.filter((f) => kit.now - f.t < 700);
+  },
+  pointerDown(x, y, kit) {
+    const i = pads.findIndex((p) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h);
+    if (i >= 0) this.press(i, kit);
+  },
+  key(k, kit) {
+    const n = Number(k);
+    if (n >= 1 && n <= pads.length) { this.press(n - 1, kit); return true; }
+    return false;
+  },
+  press(i, kit) {
+    if (phase !== "input") return;
+    lit = i; litT = kit.now;
+    const p = pads[i];
+    if (i === seq[step]) {
+      step++; kit.add(5);
+      if (step >= seq.length) {
+        kit.add(20 * seq.length);
+        fx.push({ x: W / 2, y: 96, t: kit.now, txt: "Perfect!", c: "#ffd166" });
+        round++; phase = "next"; phaseT = kit.now + 700;
+        kit.collect();
+      }
+    } else {
+      wrongT = kit.now;
+      fx.push({ x: p.x + p.w / 2, y: p.y - 6, t: kit.now, txt: "oops!", c: "#ff8fc2" });
+      kit.loseLife();
+      phase = "retry"; phaseT = kit.now + 900;
+    }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    ctx.textAlign = "center"; ctx.font = '11px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const msg = phase === "show" || phase === "wait" ? "WATCH..." : phase === "input" ? `YOUR TURN  ${step}/${seq.length}` : phase === "retry" ? "WATCH AGAIN" : "";
+    ctx.strokeText(msg, W / 2, 60); ctx.fillText(msg, W / 2, 60);
+    for (let i = 0; i < pads.length; i++) {
+      const p = pads[i], on = lit === i, bad = kit.now - wrongT < 400 && phase === "retry";
+      ctx.fillStyle = on ? "#fff6e5" : bad ? "rgba(255,90,95,.25)" : "rgba(16,26,66,.22)";
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(p.x, p.y, p.w, p.h, 16) : ctx.rect(p.x, p.y, p.w, p.h); ctx.fill();
+      ctx.strokeStyle = on ? "#ffd166" : "rgba(255,246,229,.5)"; ctx.lineWidth = on ? 5 : 2; ctx.stroke();
+      const sz = Math.min(p.w, p.h) * (on ? 0.82 : 0.66);
+      Arcade.drawSprite(ctx, p.sprite, p.x + (p.w - sz) / 2, p.y + (p.h - sz) / 2, sz, { alpha: on ? 1 : 0.75, glow: on ? "#ffd166" : undefined });
+      if (pads.length && phase === "input") {
+        ctx.font = '8px "Press Start 2P", monospace'; ctx.fillStyle = "rgba(16,26,66,.5)"; ctx.fillText(String(i + 1), p.x + 12, p.y + 16);
+      }
+    }
+    ctx.font = '10px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
