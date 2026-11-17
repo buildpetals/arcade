@@ -22,7 +22,9 @@ const SHAPES = {
   L: { n: 3, c: [[2, 0], [0, 1], [1, 1], [2, 1]], col: ["#ff8fc2", "#ffd6ea", "#ffb3d5"] },
 };
 const KINDS = Object.keys(SHAPES), LINE_PTS = [0, 25, 60, 120, 250];
-let grid, cur, next, bag, dropT, lockT, fx, tap, garbT = 0;
+let grid, cur, next, bag, dropT, lockT, fx, tap, garbT = 0, holdDown = null, holdT = 0;
+// Hold to drop: after a downward swipe, keep your finger down and the block keeps falling fast until it lands.
+addEventListener("touchend", () => { holdDown = null; }); addEventListener("touchcancel", () => { holdDown = null; });
 
 const emptyGrid = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 function fresh() { if (!bag || !bag.length) bag = KINDS.slice().sort(() => Math.random() - 0.5); return bag.pop(); }
@@ -36,7 +38,7 @@ function rotate() {
   const n = SHAPES[cur.k].n, r = cur.cells.map(([x, y]) => [n - 1 - y, x]);
   for (const k of [0, -1, 1, -2, 2]) if (fits(cur, k, 0, r)) { cur.cells = r; cur.x += k; lockT = 0; return; }
 }
-function soft(kit) { if (fits(cur, 0, 1)) { cur.y++; kit.add(1); dropT = 0; } else lock(kit); }
+function soft(kit) { if (fits(cur, 0, 1)) { cur.y++; kit.add(1); dropT = 0; } else { holdDown = null; lock(kit); } }
 function hard(kit) { let n = 0; while (fits(cur, 0, 1)) { cur.y++; n++; } kit.add(n * 2); lock(kit); }
 function spawn(kit) {
   cur = mk(next); next = fresh(); dropT = 0; lockT = 0;
@@ -72,13 +74,14 @@ Arcade.run({
   id: "bouquet-blocks",
   title: ["BOUQUET", "BLOCKS"],
   blurb: "Stack the falling building blocks. Fill a whole row to clear it, and clear 4 at once for a bouquet bonus. Clear all <b>10 levels</b>.",
-  hint: "Swipe to move · tap to rotate · swipe down to drop · arrow keys work too",
+  hint: "Swipe to move · tap to rotate · swipe down and hold to drop · arrow keys work too",
   legend: [{ sprite: "bluebell", label: "clear rows" }, { sprite: "sunflower", label: "4 rows = bouquet" }],
   width: W, height: H, lives: 3, dpad: false, swipeAnywhere: true, swipeStep: 26,
   goal: (l) => GOAL[l - 1],
   goalLabel: (l) => `clear ${GOAL[l - 1]} rows · faster drops${l >= 6 ? " · rising bed" : ""}`,
   setup(level, kit) { grid = emptyGrid(); bag = []; fx = []; tap = null; garbT = 0; next = fresh(); spawn(kit); },
   update(dt, kit) {
+    if (holdDown === cur && (holdT += dt) >= 0.05) { holdT = 0; soft(kit); if (kit.state !== "play") return; }
     if (kit.level >= 6 && (garbT += dt) >= GARBAGE_EVERY) { garbT = 0; garbage(kit); if (kit.state !== "play") return; }
     const iv = Arcade.lerpLevel(kit.level, 0.8, 0.13);
     dropT += dt;
@@ -98,7 +101,7 @@ Arcade.run({
     else return false;
     return true;
   },
-  swipe(dir, kit) { if (dir === "left") move(-1); else if (dir === "right") move(1); else if (dir === "up") rotate(); else soft(kit); },
+  swipe(dir, kit) { if (dir === "left") move(-1); else if (dir === "right") move(1); else if (dir === "up") rotate(); else { const p = cur; soft(kit); if (cur === p) { holdDown = cur; holdT = 0; } } },
   pointerDown(x, y, kit) { tap = { x, y, t: kit.now }; },
   pointerUp(x, y, kit) { if (tap && Math.hypot(x - tap.x, y - tap.y) < 12 && kit.now - tap.t < 350) rotate(); tap = null; },
   draw(ctx, kit) {
