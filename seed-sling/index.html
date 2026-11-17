@@ -10,15 +10,15 @@
 <script>
 /* SEED SLING — pull back, let go, and land seeds in the flower pots. */
 const W = 360, H = 480, GROUND = H - 40, SX = 54, SY = GROUND - 70, GRAV = 520, MAXV = 560;
-const GOAL = [3, 3, 4, 4, 5, 5, 5, 6, 6, 7];
+const GOAL = [4, 4, 5, 5, 6, 6, 7, 8, 8, 9];
 const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
 let pots, seed, drag, wind, fx, blooms, guideLen;
 
 function placePot(p, level) {
-  p.w = Math.round(L(level, 58, 40)); p.h = 34;
+  p.w = Math.round(L(level, 56, 38)); p.h = 34;
   p.x = Arcade.rand(150, W - p.w - 12);
   p.y = level >= 3 && Math.random() < 0.5 ? Arcade.rand(GROUND - 190, GROUND - 90) : GROUND - p.h;
-  p.vx = level >= 6 ? Arcade.rand(25, L(level, 30, 70)) * (Math.random() < 0.5 ? -1 : 1) : 0;
+  p.vx = level >= 6 ? Arcade.rand(25, L(level, 30, 90)) * (Math.random() < 0.5 ? -1 : 1) : 0;
   p.bloom = 0;
 }
 function velocityFromDrag() {
@@ -47,8 +47,8 @@ Arcade.run({
     pots = Array.from({ length: level >= 5 ? 2 : 3 }, () => ({}));
     pots.forEach((p) => placePot(p, level));
     seed = null; drag = null; fx = []; blooms = [];
-    wind = level >= 7 ? Arcade.rand(-1, 1) * L(level, 40, 110) : 0;
-    guideLen = Math.round(L(level, 16, 5));
+    wind = level >= 7 ? Arcade.rand(-1, 1) * L(level, 40, 140) : 0;
+    guideLen = level >= 8 ? 0 : Math.round(L(level, 16, 5));
   },
   update(dt, kit) {
     for (const p of pots) if (p.vx) { p.x += p.vx * dt; if (p.x < 140 || p.x + p.w > W - 8) { p.vx *= -1; p.x = Math.max(140, Math.min(W - 8 - p.w, p.x)); } }
@@ -61,7 +61,7 @@ Arcade.run({
           fx.push({ x: p.x + p.w / 2, y: p.y - 30, t: kit.now, txt: "planted!", c: "#ffd166" });
           blooms.push({ x: p.x + p.w / 2, y: p.y, t: kit.now });
           const was = p; setTimeout(() => placePot(was, kit.level), 0);
-          if (wind) wind = Arcade.rand(-1, 1) * L(kit.level, 40, 110);
+          if (wind) wind = Arcade.rand(-1, 1) * L(kit.level, 40, 140);
           kit.collect(); return;
         }
         // bounce off the pot's sides
