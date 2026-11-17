@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Vase Sort · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* VASE SORT — move the blooms between vases until every vase holds one colour. */
+const W = 360, H = 480, CAP = 4;
+const BLOOMS = ["rose", "sunflower", "bluebell", "tulip", "lily", "poppy", "daisy", "phantom"];
+const COLORS_BY_LEVEL = [3, 4, 4, 5, 5, 6, 6, 7, 7, 8];
+let vases, sel, moves, history, extraUsed, fx, anim, solvedT;
+const BTN = { reset: { x: 14, y: H - 44, w: 100, h: 32, t: "↺ RESET" }, undo: { x: 130, y: H - 44, w: 100, h: 32, t: "UNDO" }, add: { x: 246, y: H - 44, w: 100, h: 32, t: "+ VASE" } };
+
+function shuffled(n) {
+  for (let tries = 0; tries < 200; tries++) {
+    const all = [];
+    for (let c = 0; c < n; c++) for (let i = 0; i < CAP; i++) all.push(c);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    const v = Array.from({ length: n }, (_, i) => all.slice(i * CAP, i * CAP + CAP));
+    // no vase may start already sorted, and avoid long same-colour runs
+    if (v.some((x) => x.every((c) => c === x[0]))) continue;
+    if (v.some((x) => x.slice(1).every((c) => c === x[1]))) continue;
+    v.push([], []);
+    return v;
+  }
+}
+let start;
+function layoutVase(i) {
+  const n = vases.length, perRow = n <= 6 ? n : Math.ceil(n / 2), row = Math.floor(i / perRow), col = i % perRow;
+  const rowCount = n <= 6 ? 1 : 2, inRow = row === rowCount - 1 ? n - perRow * (rowCount - 1) : perRow;
+  const vw = 44, gap = (W - inRow * vw) / (inRow + 1), vh = CAP * 36 + 16;
+  const top = rowCount === 1 ? 150 : row === 0 ? 50 : 50 + vh + 50;
+  return { x: gap + col * (vw + gap), y: top, w: vw, h: vh };
+}
+const topRun = (v) => { if (!v.length) return 0; let n = 1; while (n < v.length && v[v.length - 1 - n] === v[v.length - 1]) n++; return n; };
+function canPour(a, b) {
+  if (a === b || !vases[a].length || vases[b].length >= CAP) return false;
+  return !vases[b].length || vases[b][vases[b].length - 1] === vases[a][vases[a].length - 1];
+}
+function pour(a, b) {
+  history.push(vases.map((v) => v.slice()));
+  const n = Math.min(topRun(vases[a]), CAP - vases[b].length);
+  for (let i = 0; i < n; i++) vases[b].push(vases[a].pop());
+  return n;
+}
+const solved = () => vases.every((v) => !v.length || (v.length === CAP && v.every((c) => c === v[0])));
+const inBtn = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+
+Arcade.run({
+  id: "vase-sort",
+  title: ["VASE", "SORT"],
+  blurb: "The florist mixed up the bouquets! Tap a vase, then tap another to move the top blooms across. A bloom can only go on the <b>same flower</b> or into an empty vase. Fill every vase with one kind to clear the level.",
+  hint: "Tap a vase, then where to pour · Undo, Reset or one extra vase per level · Space to pause",
+  legend: [{ sprite: "vase", label: "4 per vase" }, { sprite: "rose", label: "same on same" }],
+  width: W, height: H,
+  goal: () => 1,
+  goalLabel: (l) => `sort ${COLORS_BY_LEVEL[l - 1]} kinds of flowers`,
+  setup(level, kit) {
+    vases = shuffled(COLORS_BY_LEVEL[level - 1]);
+    start = vases.map((v) => v.slice());
+    sel = -1; moves = 0; history = []; extraUsed = false; fx = []; anim = null; solvedT = 0;
+  },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 700);
+    if (solvedT && kit.now - solvedT > 600) { solvedT = 0; kit.add(Math.max(50, 400 - moves * 8)); kit.collect(); }
+  },
+  pointerDown(x, y, kit) {
+    if (solvedT) return;
+    if (inBtn(BTN.reset, x, y)) { vases = start.map((v) => v.slice()); if (extraUsed) vases.push([]); history = []; sel = -1; return; }
+    if (inBtn(BTN.undo, x, y)) { if (history.length) { vases = history.pop(); sel = -1; } return; }
+    if (inBtn(BTN.add, x, y)) {
+      if (extraUsed) { kit.toast("Only one extra vase per level"); return; }
+      extraUsed = true; vases.push([]); start.push([]); history = history.map((h) => h.concat([[]])); sel = -1; return;
+    }
+    for (let i = 0; i < vases.length; i++) {
+      const r = layoutVase(i);
+      if (x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 30 && y <= r.y + r.h + 6) {
+        if (sel < 0) { if (vases[i].length) sel = i; }
+        else if (sel === i) sel = -1;
+        else if (canPour(sel, i)) {
+          const n = pour(sel, i); moves++; kit.add(2 * n);
+          anim = { to: i, t: kit.now };
+          const v = vases[i];
+          if (v.length === CAP && v.every((c) => c === v[0])) { const lr = layoutVase(i); fx.push({ x: lr.x + lr.w / 2, y: lr.y - 24, t: kit.now, txt: "+bouquet!", c: "#ffd166" }); kit.add(25); }
+          sel = -1;
+          if (solved()) solvedT = kit.now;
+        } else { if (vases[i].length) sel = i; else sel = -1; }
+        return;
+      }
+    }
+    sel = -1;
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H, 24);
+    for (let i = 0; i < vases.length; i++) {
+      const r = layoutVase(i), lift = sel === i ? -16 : 0;
+      const full = vases[i].length === CAP && vases[i].every((c) => c === vases[i][0]);
+      ctx.fillStyle = full ? "rgba(255,209,102,.45)" : "rgba(207,227,255,.55)";
+      ctx.strokeStyle = sel === i ? "#ffd166" : "#2b4bc9"; ctx.lineWidth = sel === i ? 4 : 3;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y + lift, r.w, r.h, [4, 4, 16, 16]) : ctx.rect(r.x, r.y + lift, r.w, r.h); ctx.fill(); ctx.stroke();
+      vases[i].forEach((c, k) => {
+        const yy = r.y + r.h - 8 - (k + 1) * 36 + lift;
+        const pop = anim && anim.to === i && k >= vases[i].length - 1 && kit.now - anim.t < 160 ? 4 : 0;
+        Arcade.drawSprite(ctx, BLOOMS[c], r.x + 4 - pop / 2, yy + 2 - pop / 2, 36 + pop);
+      });
+    }
+    for (const k in BTN) {
+      const b = BTN[k], off = k === "add" && extraUsed;
+      ctx.globalAlpha = off ? 0.4 : 1;
+      Arcade.brick(ctx, b.x, b.y, b.w, b.h, "#8f7ae6", "#b9a7f5", "#a593ef", 3);
+      ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5";
+      Arcade.ink(ctx); ctx.strokeText(b.t, b.x + b.w / 2, b.y + b.h / 2 + 4); ctx.fillText(b.t, b.x + b.w / 2, b.y + b.h / 2 + 4);
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    ctx.strokeText("MOVES " + moves, W / 2, 24); ctx.fillText("MOVES " + moves, W / 2, 24);
+    ctx.font = '11px "Press Start 2P", monospace';
+    for (const f of fx) { const k = (kit.now - f.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
