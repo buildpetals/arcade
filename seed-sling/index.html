@@ -91,23 +91,21 @@ Arcade.run({
   },
   draw(ctx, kit) {
     Arcade.grid(ctx, W, H, 24);
-    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = "#4cc36a"; ctx.fillRect(0, GROUND, W, 6);
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(-10, GROUND + 4, W + 20, H, 14), "#c99a6b", 1.4); Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(-10, GROUND, W + 20, 12, 6), "#8fd07f", 1.2);
     if (wind) {
-      ctx.textAlign = "center"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+      ctx.textAlign = "center"; ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
       const t = "WIND " + (wind > 0 ? "→".repeat(1 + Math.round(Math.abs(wind) / 45)) : "←".repeat(1 + Math.round(Math.abs(wind) / 45)));
       ctx.strokeText(t, W / 2, 22); ctx.fillText(t, W / 2, 22);
     }
     for (const p of pots) {
       if (p.y < GROUND - p.h - 2) { Arcade.brick(ctx, p.x - 10, p.y + p.h, p.w + 20, 14, "#8f7ae6", "#b9a7f5", "#a593ef"); }
-      ctx.fillStyle = "#8a3f1c"; ctx.fillRect(p.x - 3, p.y, p.w + 6, 8);
+      Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(p.x - 3, p.y, p.w + 6, 9, 4), "#e39470", 1);
       ctx.fillStyle = "#c96a3a"; ctx.beginPath(); ctx.moveTo(p.x, p.y + 8); ctx.lineTo(p.x + p.w, p.y + 8); ctx.lineTo(p.x + p.w - 6, p.y + p.h); ctx.lineTo(p.x + 6, p.y + p.h); ctx.fill();
-      ctx.fillStyle = "#5c2e0e"; ctx.fillRect(p.x + 2, p.y + 1, p.w - 4, 3);
+      
     }
     for (const b of blooms) { const k = Math.min(1, (kit.now - b.t) / 300); Arcade.drawSprite(ctx, "sunflower", b.x - 16 * k, b.y - 34 * k, 32 * k); }
     // sling
-    ctx.fillStyle = "#8a4b1f"; ctx.fillRect(SX - 4, SY + 6, 8, GROUND - SY - 6);
-    ctx.fillRect(SX - 16, SY - 12, 6, 22); ctx.fillRect(SX + 10, SY - 12, 6, 22);
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(SX - 4, SY + 4, 8, GROUND - SY - 2, 4), "#a8703f", 1); Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(SX - 16, SY - 12, 7, 24, 3.5), "#a8703f", 1); Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(SX + 9, SY - 12, 7, 24, 3.5), "#a8703f", 1);
     const hold = drag && !seed ? drag : null;
     ctx.strokeStyle = "#5c2e0e"; ctx.lineWidth = 3; ctx.beginPath();
     ctx.moveTo(SX - 13, SY - 10); ctx.lineTo(hold ? hold.x : SX, hold ? hold.y : SY); ctx.lineTo(SX + 13, SY - 10); ctx.stroke();
@@ -119,7 +117,7 @@ Arcade.run({
     const s = seed || (hold ? { x: hold.x, y: hold.y } : { x: SX, y: SY });
     ctx.fillStyle = "#5c2e0e"; ctx.beginPath(); ctx.ellipse(s.x, s.y, 7, 9, seed ? seed.t * 8 : 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#c98450"; ctx.beginPath(); ctx.ellipse(s.x - 2, s.y - 3, 2, 3, 0, 0, 7); ctx.fill();
-    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace';
+    ctx.textAlign = "center"; ctx.font = '700 14px Fredoka, sans-serif';
     for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
     ctx.globalAlpha = 1;
   },
