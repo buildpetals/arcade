@@ -78,27 +78,27 @@ Arcade.run({
     for (const c of cards) {
       const s = Math.abs(Math.cos(c.flip * Math.PI)), showFace = c.flip > 0.5;
       const w = c.w * Math.max(0.04, s), x = c.x + (c.w - w) / 2;
-      ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.fillRect(x + 2, c.y + 4, w, c.h);
+      
       if (showFace) {
-        ctx.fillStyle = c.matched ? "#e8f8ea" : "#fff6e5"; ctx.fillRect(x, c.y, w, c.h);
-        ctx.strokeStyle = c.matched ? "#43b85e" : "#b9a7f5"; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, c.y + 1.5, w - 3, c.h - 3);
+        Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(x, c.y, w, c.h, 12), c.matched ? "#e3f6e1" : "#fffaf0", 1.4);
+        if (c.matched) { ctx.strokeStyle = "#7cc77a"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(x + 2, c.y + 2, w - 4, c.h - 4, 10); ctx.stroke(); }
         const sz = Math.min(c.w, c.h) * 0.7;
         if (s > 0.2) Arcade.drawSprite(ctx, c.face, c.x + (c.w - sz * s) / 2, c.y + (c.h - sz) / 2, sz * s, { alpha: c.matched ? 0.75 : 1 });
       } else {
-        ctx.fillStyle = "#2b3a7a"; ctx.fillRect(x, c.y, w, c.h);
-        ctx.strokeStyle = "#8f7ae6"; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, c.y + 1.5, w - 3, c.h - 3);
+        Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(x, c.y, w, c.h, 12), "#b79ae0", 1.4);
+        ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.roundRect(x + 5, c.y + 5, w - 10, c.h - 10, 8); ctx.stroke(); ctx.setLineDash([]);
         if (s > 0.3) {
-          ctx.fillStyle = "#b9a7f5"; ctx.font = `${Math.round(c.h * 0.32)}px "Press Start 2P", monospace`;
+          ctx.fillStyle = "#ffffff"; ctx.font = `700 ${Math.round(c.h * 0.42)}px Fredoka, sans-serif`;
           ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", c.x + c.w / 2, c.y + c.h / 2 + 2);
         }
       }
     }
-    ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = "center";
+    ctx.font = '700 14px Fredoka, sans-serif'; ctx.textAlign = "center";
     for (const p of pops) { const k = (kit.now - p.t) / 700; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; (Arcade.ink(ctx), ctx.strokeText(p.txt, p.x, p.y - k * 24), ctx.fillText(p.txt, p.x, p.y - k * 24)); }
     ctx.globalAlpha = 1;
     if (kit.state === "play" && kit.now < peekUntil) {
-      ctx.fillStyle = "rgba(16,26,66,.75)"; ctx.fillRect(0, H / 2 - 22, W, 44);
-      ctx.fillStyle = "#fff6e5"; ctx.font = '12px "Press Start 2P", monospace'; ctx.textBaseline = "middle"; (Arcade.ink(ctx), ctx.strokeText("MEMORIZE!", W / 2, H / 2), ctx.fillText("MEMORIZE!", W / 2, H / 2));
+      Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(W / 2 - 90, H / 2 - 24, 180, 48, 24), "#ffffff", 1.4);
+      ctx.fillStyle = "#9a7fd0"; ctx.font = '700 20px Fredoka, sans-serif'; ctx.textBaseline = "middle"; (ctx.fillText("MEMORIZE!", W / 2, H / 2));
     }
   },
 });
