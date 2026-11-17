@@ -10,20 +10,20 @@
 <script>
 /* LADYBUG LEAP — bounce up the leaves as high as you can. Hold left or right to steer. */
 const W = 360, H = 480, BOUNCE = -560, GRAV = 1100, LW = 64, LH = 12, STEP = 10; // STEP px of climb = 1 cm
-const GOAL = [40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
+const GOAL = [60, 80, 100, 120, 140, 165, 190, 215, 240, 270];
 const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
 Arcade.variant("bee", "wasp", { y: "#ff7a3d" }, "Wasp");
 let lb, leaves, wasps, camY, steer, best, fx, topY, gap;
 
 function addLeaf(y, level) {
-  const r = Math.random(), kind = level >= 6 && r < L(level, 0.1, 0.25) ? "crumbly" : level >= 4 && r < L(level, 0.35, 0.5) ? "moving" : "leaf";
-  leaves.push({ x: Arcade.rand(8, W - LW - 8), y, kind, vx: kind === "moving" ? Arcade.rand(40, L(level, 50, 110)) * (Math.random() < 0.5 ? -1 : 1) : 0, gone: 0 });
+  const r = Math.random(), kind = level >= 5 && r < L(level, 0.1, 0.35) ? "crumbly" : level >= 4 && r < L(level, 0.35, 0.6) ? "moving" : "leaf";
+  leaves.push({ x: Arcade.rand(8, W - LW - 8), y, kind, vx: kind === "moving" ? Arcade.rand(40, L(level, 50, 140)) * (Math.random() < 0.5 ? -1 : 1) : 0, gone: 0 });
 }
 function fill(level) {
   while (topY > camY - 80) {
     topY -= Arcade.rand(gap * 0.7, gap);
     addLeaf(topY, level);
-    if (level >= 3 && Math.random() < L(level, 0.05, 0.14)) wasps.push({ x: Arcade.rand(30, W - 30), y: topY - gap / 2, vx: Arcade.rand(50, 100) * (Math.random() < 0.5 ? -1 : 1) });
+    if (level >= 3 && Math.random() < L(level, 0.06, 0.2)) wasps.push({ x: Arcade.rand(30, W - 30), y: topY - gap / 2, vx: Arcade.rand(50, 100) * (Math.random() < 0.5 ? -1 : 1) });
   }
   leaves = leaves.filter((l) => l.y < camY + H + 40);
   wasps = wasps.filter((w) => w.y < camY + H + 40);
@@ -43,9 +43,9 @@ Arcade.run({
   legend: [{ sprite: "ladybug", label: "you" }, { sprite: "wasp", label: "wasp: avoid" }],
   width: W, height: H, lives: 3,
   goal: (l) => GOAL[l - 1],
-  goalLabel: (l) => `climb ${GOAL[l - 1]} cm${l === 3 ? " · wasps!" : l === 4 ? " · moving leaves" : l === 6 ? " · crumbly leaves" : ""}`,
+  goalLabel: (l) => `climb ${GOAL[l - 1]} cm${l === 3 ? " · wasps!" : l === 4 ? " · moving leaves" : l === 5 ? " · crumbly leaves" : ""}`,
   setup(level, kit) {
-    gap = L(level, 70, 105);
+    gap = L(level, 75, 120);
     lb = { x: W / 2, y: H - 70, vy: BOUNCE, safe: 0 }; camY = 0; steer = 0; best = 0; fx = [];
     leaves = [{ x: W / 2 - LW / 2, y: H - 40, kind: "leaf", vx: 0, gone: 0 }]; wasps = []; topY = H - 40;
     fill(level);
