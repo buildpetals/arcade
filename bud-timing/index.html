@@ -10,7 +10,7 @@
 <script>
 /* BUD TIMING — tap each flower the moment it's in full bloom. Too early and it's still a bud; too late and it wilts. */
 const W = 360, H = 480;
-const GOAL = [6, 8, 10, 12, 14, 15, 16, 18, 20, 22];
+const GOAL = [8, 10, 12, 15, 18, 20, 22, 25, 28, 32];
 const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
 const KINDS = ["rose", "tulip", "daisy", "sunflower", "bluebell", "lily", "poppy"];
 let pots, fx, spawnIn;
@@ -23,7 +23,7 @@ function layout(level) {
 function sprout(kit) {
   const free = pots.filter((p) => !p.f); if (!free.length) return;
   const p = Arcade.pick(free), lv = kit.level;
-  const grow = L(lv, 2.4, 1.1) * Arcade.rand(0.8, 1.25), win = L(lv, 0.9, 0.42);
+  const grow = L(lv, 2.2, 0.9) / Arcade.speedUp(kit, 0.008, 0.15) * Arcade.rand(0.8, 1.25), win = L(lv, 0.8, 0.28);
   p.f = { born: kit.now, grow: grow * 1000, win: win * 1000, kind: Arcade.pick(KINDS), done: 0, ok: false };
 }
 const stage = (f, now) => { const t = now - f.born; return t < f.grow ? t / f.grow : t < f.grow + f.win ? 1 : 2; };
