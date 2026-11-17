@@ -9,11 +9,11 @@
   const head = document.head;
   head.insertAdjacentHTML("beforeend",
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet">');
+    '<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">');
   const css = `
   :root{--navy:#101a42;--ink:#2a3260;--lav:#b79ae0;--lav2:#9a7fd0;--sky:#9fd3f5;--cream:#fffaf0;--gold:#ffd166;--rose:#e2577f;--paper:#f6efff;--shadow:0 3px 8px rgba(40,30,70,.18)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;color:var(--ink);font-family:"Nunito","Fredoka",system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;color:var(--ink);font-family:"Fredoka",system-ui,sans-serif;font-weight:500;overflow:hidden;user-select:none;-webkit-user-select:none}
   body{background:linear-gradient(#ece2fb,#f8f1ff 60%);display:flex;flex-direction:column;align-items:center;position:relative}
   body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:34%;z-index:-1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120' preserveAspectRatio='none'%3E%3Cpath d='M0 50 C120 20 240 70 400 35 V120 H0Z' fill='%23e3d6f8'/%3E%3Cpath d='M0 80 C140 55 260 100 400 70 V120 H0Z' fill='%23d9c9f4'/%3E%3C/svg%3E") bottom/100% 100% no-repeat}
   #app{width:100%;height:100%;max-width:640px;display:flex;flex-direction:column;align-items:center;padding:10px 10px 12px;gap:8px}
@@ -233,7 +233,7 @@
     });
   };
   A.ink = (ctx) => { ctx.lineWidth = 3.5; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(42,50,96,.85)"; };
-  A.font = (px, w) => `${w || 700} ${px}px Fredoka, "Nunito", system-ui, sans-serif`;
+  A.font = (px, w) => `${w || 700} ${px}px Fredoka, system-ui, sans-serif`;
   A.rand = (a, b) => a + Math.random() * (b - a);
   A.pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   A.lerpLevel = (level, a, b) => a + (b - a) * ((level - 1) / (LEVELS - 1));
