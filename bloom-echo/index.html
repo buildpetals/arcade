@@ -30,7 +30,8 @@ function newRound(kit) {
   seq.length = len;
   step = 0; phase = "show"; phaseT = kit.now + 650; showIdx = -1; lit = -1;
 }
-const startLen = (l) => 2 + Math.floor(l * 0.8);
+const START = [3, 4, 5, 5, 6, 7, 8, 8, 9, 10];
+const startLen = (l) => START[l - 1];
 function speed(kit) { return L(kit.level, 620, 330); }
 
 Arcade.run({
@@ -60,6 +61,7 @@ Arcade.run({
     }
     if (phase === "input" && lit >= 0 && kit.now - litT > 220) lit = -1;
     if (phase === "next" && kit.now >= phaseT) { phase = "wait"; }
+    if (phase === "retry" && kit.now >= phaseT && !seq.length) { phase = "wait"; return; } // from level 6 a mistake brings a new pattern
     if (phase === "retry" && kit.now >= phaseT) { step = 0; phase = "show"; phaseT = kit.now + 400; showIdx = -1; lit = -1; }
     fx = fx.filter((f) => kit.now - f.t < 700);
   },
@@ -88,7 +90,7 @@ Arcade.run({
       wrongT = kit.now;
       fx.push({ x: p.x + p.w / 2, y: p.y - 6, t: kit.now, txt: "oops!", c: "#ff8fc2" });
       kit.loseLife();
-      phase = "retry"; phaseT = kit.now + 900;
+      phase = "retry"; phaseT = kit.now + 900; if (kit.level >= 6) seq = [];
     }
   },
   draw(ctx, kit) {
