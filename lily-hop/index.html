@@ -21,18 +21,21 @@ function buildLanes(level) {
   for (let r = 0; r < ROWS; r++) {
     if (r === 0 || r === ROWS - 1 || r === rest) { lanes.push({ kind: "bank" }); continue; }
     if (level < 3 && (r === 1 || r === 10)) { lanes.push({ kind: "bank" }); continue; }
-    const dir = r % 2 ? 1 : -1, sp = L(level, 28, 70) * Arcade.rand(0.75, 1.25) * dir;
+    const dir = r % 2 ? 1 : -1, sp = L(level, 30, 100) * Arcade.rand(0.75, 1.25) * dir;
     const len = Math.max(1, Math.round(L(level, 3, 1.6) + Math.random() * 1.2)), gap = Math.round(L(level, 2, 3.4) + Math.random());
     const pads = [], span = (len + gap) * C;
     const n = Math.ceil((W + span * 2) / span), off = Math.random() * span;
-    for (let i = 0; i < n; i++) pads.push({ x: -span + off + i * span, len });
+    for (let i = 0; i < n; i++) pads.push({ x: -span + off + i * span, len, sink: level >= 7 && Math.random() < 0.3, ph: Math.random() * 4 });
     lanes.push({ kind: "water", sp, pads, span: n * span });
   }
 }
+// from level 7 some pads sink for 1s in every 4s (they fade first as a warning)
+const sinkT = (p, now) => (p.sink ? (now / 1000 + p.ph) % 4 : 0);
+const sunk = (p, now) => sinkT(p, now) >= 3;
 function resetFrog() { frog = { x: Math.floor(COLS / 2) * C + C / 2, row: ROWS - 1, hopT: 0, best: ROWS - 1 }; }
 function padUnder(row, x) {
   const ln = lanes[row]; if (ln.kind !== "water") return null;
-  return ln.pads.find((p) => x >= p.x + 4 && x <= p.x + p.len * C - 4) || null;
+  return ln.pads.find((p) => !sunk(p, Arcade.kit.now) && x >= p.x + 4 && x <= p.x + p.len * C - 4) || null;
 }
 function hop(dir, kit) {
   if (kit.now - frog.hopT < 110) return;
@@ -66,7 +69,7 @@ Arcade.run({
   legend: [{ sprite: "frog", label: "reach the top" }, { sprite: "lily", label: "+25" }],
   width: W, height: H, lives: 3, dpad: false, swipeAnywhere: true, swipeStep: 24,
   goal: (l) => GOAL[l - 1],
-  goalLabel: (l) => `cross the pond ${GOAL[l - 1]} times${l === 3 ? " · wider pond!" : l === 4 ? " · rest on the island" : ""}`,
+  goalLabel: (l) => `cross the pond ${GOAL[l - 1]} times${l === 3 ? " · wider pond!" : l === 4 ? " · rest on the island" : l === 7 ? " · sinking pads!" : ""}`,
   setup(level, kit) { buildLanes(level); resetFrog(); fx = []; placeFlowers(); },
   update(dt, kit) {
     for (const ln of lanes) if (ln.kind === "water") for (const p of ln.pads) {
@@ -102,11 +105,11 @@ Arcade.run({
         ctx.fillStyle = r % 2 ? "#4f9fe0" : "#5aa9e8"; ctx.fillRect(0, y, W, C);
         ctx.fillStyle = "rgba(255,255,255,.18)";
         for (let i = 0; i < 4; i++) { const wx = ((kit.now / 40) * (ln.sp > 0 ? 1 : -1) + i * 97 + r * 31) % (W + 40); ctx.fillRect((wx + W + 40) % (W + 40) - 20, y + 12 + (i % 2) * 14, 14, 2); }
-        for (const p of ln.pads) for (let i = 0; i < p.len; i++) {
+        for (const p of ln.pads) { const st = sinkT(p, kit.now); if (st >= 3) continue; ctx.globalAlpha = st >= 2.3 ? 0.45 : 1; for (let i = 0; i < p.len; i++) {
           const px = p.x + i * C + C / 2, py = y + C / 2;
           ctx.fillStyle = "#2e7d1f"; ctx.beginPath(); ctx.arc(px, py + 2, C * 0.44, 0, 7); ctx.fill();
           ctx.fillStyle = "#6fd24a"; ctx.beginPath(); ctx.arc(px, py, C * 0.44, 0.35, 6.0); ctx.lineTo(px, py); ctx.fill();
-        }
+        } ctx.globalAlpha = 1; }
       }
     }
     ctx.fillStyle = "rgba(255,209,102,.35)"; ctx.fillRect(0, 0, W, C);
