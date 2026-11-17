@@ -107,7 +107,7 @@ Arcade.run({
     const blink = kit.now < lb.safe && Math.floor(kit.now / 100) % 2;
     if (!blink) Arcade.drawSprite(ctx, "ladybug", lb.x - 15, lb.y - 15, 30);
     ctx.restore();
-    ctx.textAlign = "center"; ctx.font = '10px "Press Start 2P", monospace'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    ctx.textAlign = "center"; ctx.font = '700 14px Fredoka, sans-serif'; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
     const t = best + " cm"; ctx.strokeText(t, W / 2, 24); ctx.fillText(t, W / 2, 24);
     for (const f of fx) { const k = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - k; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - k * 18); ctx.fillText(f.txt, f.x, f.y - k * 18); }
     ctx.globalAlpha = 1;
