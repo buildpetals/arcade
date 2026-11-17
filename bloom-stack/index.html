@@ -10,14 +10,14 @@
 <script>
 /* BLOOM STACK — tap to drop the sliding brick. Stack high enough to plant a flower on top. */
 const W = 360, H = 480, BH = 24, BASE_W = 170, GROUND = H - 40;
-const GOAL = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18];
+const GOAL = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 const COLORS = [["#ff8fc2", "#ffc2df", "#ffa6cf"], ["#8fc7ff", "#c4e0ff", "#a8d4ff"], ["#b9a7f5", "#ddd3fb", "#cbbdf8"], ["#ffd166", "#ffe6a3", "#ffdb85"], ["#6fd98a", "#b8f0c5", "#8fe3a4"]];
 let tower, mover, falling, cam, camTarget, done, flowerKey, failAt, doneAt;
 
 function color(i) { return COLORS[i % COLORS.length]; }
 function newMover(kit) {
   const top = tower[tower.length - 1];
-  const speed = Arcade.lerpLevel(kit.level, 130, 290) + tower.length * 3;
+  const speed = Arcade.lerpLevel(kit.level, 150, 300) + tower.length * 3;
   const fromLeft = tower.length % 2 === 1;
   mover = { x: fromLeft ? -top.w : W, y: top.y - BH, w: top.w, v: fromLeft ? speed : -speed, ci: tower.length };
 }
@@ -26,7 +26,7 @@ function drop(kit) {
   const top = tower[tower.length - 1];
   const left = Math.max(mover.x, top.x), right = Math.min(mover.x + mover.w, top.x + top.w), overlap = right - left;
   if (overlap <= 2) { falling.push({ x: mover.x, y: mover.y, w: mover.w, vy: 0, ci: mover.ci }); mover = null; kit.toast("Missed!"); failAt = kit.now + 450; return; }
-  let x = left, w = overlap, perfect = Math.abs(mover.x - top.x) < 5;
+  let x = left, w = overlap, perfect = Math.abs(mover.x - top.x) < (kit.level >= 6 ? 4 : 5);
   if (perfect) { x = top.x; w = Math.min(BASE_W, top.w + 6); kit.add(25); kit.toast("Perfect! +25"); }
   else {
     if (mover.x < top.x) falling.push({ x: mover.x, y: mover.y, w: top.x - mover.x, vy: 0, ci: mover.ci });
