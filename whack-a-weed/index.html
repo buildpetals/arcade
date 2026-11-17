@@ -10,7 +10,7 @@
 <script>
 /* WHACK-A-WEED — tap the weeds before they escape. Don't tap the flowers! */
 const W = 360, H = 480;
-const GOAL = [8, 10, 12, 14, 15, 16, 18, 20, 22, 25];
+const GOAL = [10, 12, 15, 18, 20, 23, 26, 29, 32, 35];
 const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
 let pots, pops, fx, spawnIn;
 Arcade.variant("weed", "goldWeed", { g: "#ffd166", G: "#e0a400" }, "Golden Weed");
@@ -24,10 +24,10 @@ function makePots(level) {
 function spawn(kit) {
   const free = pots.filter((p) => !p.item); if (!free.length) return;
   const p = Arcade.pick(free), lv = kit.level, r = Math.random();
-  const flowerChance = L(lv, 0.12, 0.34), goldChance = 0.06;
+  const flowerChance = L(lv, 0.12, 0.4), goldChance = 0.06;
   const kind = r < flowerChance ? "flower" : r < flowerChance + goldChance ? "gold" : "weed";
   const sprite = kind === "flower" ? Arcade.pick(["rose", "tulip", "daisy", "bluebell", "sunflower"]) : kind === "gold" ? "goldWeed" : "weed";
-  p.item = { kind, sprite, born: kit.now, life: L(lv, 1500, 700) * (kind === "gold" ? 0.7 : 1), hit: 0 };
+  p.item = { kind, sprite, born: kit.now, life: L(lv, 1400, 550) / Arcade.speedUp(kit, 0.008, 0.15) * (kind === "gold" ? 0.7 : 1), hit: 0 };
 }
 
 Arcade.run({
@@ -42,7 +42,7 @@ Arcade.run({
   setup(level, kit) { makePots(level); pops = []; fx = []; spawnIn = 0.6; },
   update(dt, kit) {
     spawnIn -= dt;
-    if (spawnIn <= 0) { spawn(kit); spawnIn = L(kit.level, 1.0, 0.42) * Arcade.rand(0.75, 1.25); }
+    if (spawnIn <= 0) { spawn(kit); spawnIn = L(kit.level, 1.0, 0.36) / Arcade.speedUp(kit) * Arcade.rand(0.75, 1.25); }
     for (const p of pots) {
       const it = p.item; if (!it) continue;
       if (it.hit && kit.now - it.hit > 220) { p.item = null; continue; }
