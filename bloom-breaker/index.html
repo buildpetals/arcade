@@ -15,10 +15,10 @@ const ROWS = [3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
 const PAL = [["#ff8fc2", "#ffd6ea", "#ffb3d5"], ["#ff5a5f", "#ffb3b5", "#ff8a8d"], ["#ffd166", "#fff0c7", "#ffe08f"],
   ["#4f7cff", "#bfd0ff", "#8fa9ff"], ["#6fd24a", "#c9f2b8", "#9fe486"], ["#b9a7f5", "#e6defc", "#d4c8fa"], ["#8fc7ff", "#d9ecff", "#b8dcff"]];
 const FLOWERS = ["rose", "tulip", "daisy", "bluebell", "sunflower"];
-let paddle, ball, bricks, fx, targetX, launchAt;
+let paddle, ball, bricks, fx, targetX, launchAt, hits = 0;
 
-const speedOf = (l) => Arcade.lerpLevel(l, 238, 322);
-const padW = (l) => Arcade.lerpLevel(l, 88, 62);
+const speedOf = (l) => Arcade.lerpLevel(l, 250, 360) * Math.min(1.3, 1 + 0.015 * hits); // +1.5% per paddle hit, up to +30%
+const padW = (l) => Arcade.lerpLevel(l, 84, 54);
 
 function serve(kit) { ball = { x: paddle.x, y: PY - R - 1, vx: 0, vy: 0, stuck: true }; launchAt = kit.now + 1400; }
 function launch(kit) {
@@ -37,11 +37,11 @@ Arcade.run({
   goal: (l) => ROWS[l - 1] * COLS,
   goalLabel: (l) => `break all ${ROWS[l - 1] * COLS} bricks${l >= 4 ? " · grey bricks take 2 hits" : ""}`,
   setup(level, kit) {
-    paddle = { x: W / 2, w: padW(level) }; targetX = null; fx = []; bricks = [];
+    paddle = { x: W / 2, w: padW(level) }; targetX = null; hits = 0; fx = []; bricks = [];
     const toughP = level >= 4 ? Arcade.lerpLevel(level, 0.12, 0.34) : 0;
     for (let r = 0; r < ROWS[level - 1]; r++) for (let c = 0; c < COLS; c++) {
       const tough = Math.random() < toughP;
-      bricks.push({ x: X0 + c * (BW + GAP), y: TOPY + r * (BH + GAP), hp: tough ? 2 : 1, col: PAL[(r + level) % PAL.length],
+      bricks.push({ x: X0 + c * (BW + GAP), y: TOPY + r * (BH + GAP), hp: tough ? (level >= 8 && Math.random() < 0.4 ? 3 : 2) : 1, col: PAL[(r + level) % PAL.length],
         flower: Math.random() < 0.14 ? Arcade.pick(FLOWERS) : null });
     }
     serve(kit);
@@ -62,7 +62,7 @@ Arcade.run({
         if (ball.x > W - R) { ball.x = W - R; ball.vx = -Math.abs(ball.vx); }
         if (ball.y < R + 4) { ball.y = R + 4; ball.vy = Math.abs(ball.vy); }
         if (ball.vy > 0 && ball.y + R >= PY && ball.y + R <= PY + 16 && Math.abs(ball.x - paddle.x) <= paddle.w / 2 + R * 0.6) {
-          const h = Math.max(-1, Math.min(1, (ball.x - paddle.x) / (paddle.w / 2))), a = h * 1.05, s = speedOf(kit.level);
+          const h = Math.max(-1, Math.min(1, (ball.x - paddle.x) / (paddle.w / 2))), a = h * 1.05; hits++; const s = speedOf(kit.level);
           ball.vx = s * Math.sin(a); ball.vy = -s * Math.cos(a); ball.y = PY - R;
         }
         for (const b of bricks) {
