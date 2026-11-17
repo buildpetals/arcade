@@ -15,7 +15,7 @@ const COLORS = [
   { c: "#ff8fc2", d: "#d94f8c" }, { c: "#ffd166", d: "#e0a400" }, { c: "#8fc7ff", d: "#4f7cff" },
   { c: "#6fd24a", d: "#2e7d1f" }, { c: "#b9a7f5", d: "#8f7ae6" }, { c: "#ff7a3d", d: "#c94a12" },
 ];
-const GOAL = [15, 20, 24, 28, 32, 36, 40, 45, 50, 55];
+const GOAL = [20, 25, 30, 36, 42, 48, 55, 62, 70, 78];
 const L = (lv, a, b) => Arcade.lerpLevel(lv, a, b);
 let grid, shift, nColors, shot, cur, next, aim, aiming, misses, dropEvery, fx, falling;
 
@@ -31,7 +31,12 @@ function neighbours(r, c) {
   return out.filter(([a, b]) => a >= 0 && a < grid.length && b >= 0 && b < cols(a));
 }
 function colorsLeft() { const s = new Set(); grid.forEach((row) => row.forEach((v) => v != null && s.add(v))); return [...s]; }
-function pickColor() { const left = colorsLeft(); return left.length ? Arcade.pick(left) : Math.floor(Math.random() * nColors); }
+function pickColor() {
+  const left = colorsLeft();
+  // from level 6 the next petal is sometimes any colour, not only the ones still on the board
+  if (!left.length || (Arcade.kit && Arcade.kit.level >= 6 && Math.random() < 0.35)) return Math.floor(Math.random() * nColors);
+  return Arcade.pick(left);
+}
 
 function addTopRow(kit) {
   shift ^= 1; grid.unshift(newRow()); fitRow(0);
@@ -114,7 +119,7 @@ Arcade.run({
     shift = 0; grid = [];
     const rows = Math.round(L(level, 4, 7));
     for (let r = 0; r < rows; r++) { grid.push(newRow()); fitRow(r); }
-    dropEvery = Math.round(L(level, 8, 4));
+    dropEvery = Math.round(L(level, 7, 3));
     shot = null; fx = []; falling = []; misses = 0; aim = Math.PI / 2; aiming = false;
     cur = pickColor(); next = pickColor();
   },
