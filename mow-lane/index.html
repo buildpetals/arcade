@@ -58,7 +58,7 @@ Arcade.run({
     [cols, rows] = SIZES[level - 1];
     C = Math.floor(Math.min((W - 20) / cols, (H - 60) / rows)); ox = Math.floor((W - cols * C) / 2); oy = 40 + Math.floor((H - 44 - rows * C) / 2);
     generate(level); fx = [];
-    timeLeft = Math.round(grassLeft * L(level, 1.4, 0.75) + 12);
+    timeLeft = Math.round(grassLeft * L(level, 0.9, 0.72) + 8);
   },
   update(dt, kit) {
     timeLeft -= dt;
