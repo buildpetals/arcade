@@ -13,7 +13,7 @@ const W = 360, H = 480, VASE_Y = H - 64;
 let VASE_W = 74;
 const GOAL = [12, 15, 18, 21, 24, 27, 30, 33, 36, 40];
 const FLOWERS = [["rose", 10], ["tulip", 10], ["daisy", 15], ["bluebell", 20], ["sunflower", 25]];
-let vase, targetX, drops, fx, spawnIn, combo;
+let vase, targetX, drops, fx, spawnIn, combo, timeLeft;
 
 function spawn(kit) {
   const lv = kit.level, r = Math.random(), bugChance = Arcade.lerpLevel(lv, 0.14, 0.4);
@@ -37,9 +37,12 @@ Arcade.run({
   legend: [{ sprite: "rose", label: "catch" }, { sprite: "phantom", label: "50 ✨" }, { sprite: "mystery", label: "bonus" }, { sprite: "bug", label: "dodge!" }],
   width: W, height: H, lives: 3,
   goal: (l) => GOAL[l - 1],
-  goalLabel: (l) => `catch ${GOAL[l - 1]} flowers${l >= 6 ? " · windy!" : ""}`,
-  setup(level, kit) { VASE_W = Math.round(Arcade.lerpLevel(level, 74, 56)); vase = { x: (W - VASE_W) / 2 }; targetX = null; drops = []; fx = []; spawnIn = 0.5; combo = 0; },
+  goalLabel: (l) => `catch ${GOAL[l - 1]} flowers before time runs out${l >= 6 ? " · windy!" : ""}`,
+  setup(level, kit) { VASE_W = Math.round(Arcade.lerpLevel(level, 74, 56)); vase = { x: (W - VASE_W) / 2 }; targetX = null; drops = []; fx = []; spawnIn = 0.5; combo = 0; timeLeft = Math.round(GOAL[level - 1] * Arcade.lerpLevel(level, 2.4, 1.15) + 5); },
   update(dt, kit) {
+    timeLeft -= dt;
+    kit.setInfo(`<b style="color:#ff8fc2">${"♥".repeat(Math.max(0, kit.lives))}</b> ⏱ <b>${Math.max(0, Math.ceil(timeLeft))}</b>`);
+    if (timeLeft <= 0) { kit.toast("Out of time!"); kit.fail(); return; }
     const keys = Arcade.keys, sp = 340;
     if (keys.ArrowLeft || keys.a || keys.A) { vase.x -= sp * dt; targetX = null; }
     if (keys.ArrowRight || keys.d || keys.D) { vase.x += sp * dt; targetX = null; }
