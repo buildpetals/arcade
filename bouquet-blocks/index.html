@@ -93,8 +93,8 @@ Arcade.run({
   pointerUp(x, y, kit) { if (tap && Math.hypot(x - tap.x, y - tap.y) < 12 && kit.now - tap.t < 350) rotate(); tap = null; },
   draw(ctx, kit) {
     Arcade.grid(ctx, W, H, 24);
-    ctx.fillStyle = "#101d4a"; ctx.fillRect(BX - 3, BY - 3, COLS * C + 6, ROWS * C + 6);
-    ctx.fillStyle = "rgba(143,199,255,.05)";
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(BX - 5, BY - 5, COLS * C + 10, ROWS * C + 10, 14), "#fbf6ff", 1.5);
+    ctx.fillStyle = "#f1e9fc";
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2 === 0) ctx.fillRect(BX + x * C, BY + y * C, C, C);
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x]) cell(ctx, BX + x * C, BY + y * C, grid[y][x]);
     if (cur) {
@@ -105,9 +105,9 @@ Arcade.run({
       for (const [cx, cy] of cur.cells) if (cur.y + cy >= 0) cell(ctx, BX + (cur.x + cx) * C, BY + (cur.y + cy) * C, cur.k);
     }
     // side panel
-    ctx.textAlign = "left"; ctx.font = '9px "Press Start 2P", monospace'; ctx.fillStyle = "#b9a7f5";
+    ctx.textAlign = "left"; ctx.font = '700 13px Fredoka, sans-serif'; ctx.fillStyle = "#b9a7f5";
     (Arcade.ink(ctx), ctx.strokeText("NEXT", PX, BY + 10), ctx.fillText("NEXT", PX, BY + 10));
-    ctx.fillStyle = "rgba(255,246,229,.06)"; ctx.fillRect(PX - 4, BY + 18, 88, 64);
+    Arcade.softPaper.piece(ctx, Arcade.softPaper.rr(PX - 4, BY + 18, 88, 64, 12), "#fbf6ff", 1.2);
     if (next) {
       const s = SHAPES[next], u = 17, xs = s.c.map((p) => p[0]), ys = s.c.map((p) => p[1]);
       const w = (Math.max(...xs) - Math.min(...xs) + 1) * u, h = (Math.max(...ys) - Math.min(...ys) + 1) * u;
@@ -115,10 +115,10 @@ Arcade.run({
       for (const [cx, cy] of s.c) cell(ctx, ox + cx * u, oy + cy * u, next, u);
     }
     ctx.fillStyle = "#b9a7f5"; (Arcade.ink(ctx), ctx.strokeText("ROWS", PX, BY + 112), ctx.fillText("ROWS", PX, BY + 112));
-    ctx.fillStyle = "#ffd166"; ctx.font = '15px "Press Start 2P", monospace';
+    ctx.fillStyle = "#ffd166"; ctx.font = '700 22px Fredoka, sans-serif';
     (Arcade.ink(ctx), ctx.strokeText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), PX, BY + 136), ctx.fillText(Math.min(kit.got, kit.goal()) + "/" + kit.goal(), PX, BY + 136));
     Arcade.drawSprite(ctx, "bluebell", PX + 18, BY + 168, 44);
-    ctx.textAlign = "center"; ctx.font = '11px "Press Start 2P", monospace';
+    ctx.textAlign = "center"; ctx.font = '700 16px Fredoka, sans-serif';
     for (const f of fx) { const k = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - k; ctx.fillStyle = "#ffd166"; (Arcade.ink(ctx), ctx.strokeText(f.txt, f.x, f.y - k * 28), ctx.fillText(f.txt, f.x, f.y - k * 28)); }
     ctx.globalAlpha = 1;
   },
