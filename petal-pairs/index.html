@@ -11,7 +11,7 @@
 /* PETAL PAIRS — flip two cards, find matching flowers before the clock runs out. */
 const W = 360, H = 480;
 const PAIRS = [3, 4, 6, 6, 8, 8, 10, 10, 12, 12];
-const TIME = [30, 35, 45, 38, 55, 48, 65, 58, 75, 68];       // seconds per level
+const TIME = [15, 18, 24, 20, 30, 26, 38, 33, 46, 40];       // seconds per level
 const COLS = { 3: 3, 4: 4, 6: 4, 8: 4, 10: 5, 12: 6 };
 Arcade.variant("rose", "blueRose", { p: "#8fc7ff", P: "#4f7cff", w: "#e3f0ff" }, "Blue Rose");
 Arcade.variant("rose", "goldRose", { p: "#ffd166", P: "#e0a400", w: "#fff1c2" }, "Gold Rose");
@@ -32,7 +32,7 @@ function deal(level, kit) {
   const ox = (W - (cw * cols + gap * (cols - 1))) / 2, oy = (H - (ch * rows + gap * (rows - 1))) / 2;
   cards = deck.map((face, i) => ({ face, x: ox + (i % cols) * (cw + gap), y: oy + Math.floor(i / cols) * (ch + gap), w: cw, h: ch, up: false, matched: false, flip: 0 }));
   open = []; lockUntil = 0; pops = [];
-  peekUntil = kit.now + (level <= 4 ? 1400 : 800);
+  peekUntil = kit.now + (level <= 4 ? 1000 : level <= 8 ? 500 : 0);
 }
 
 Arcade.run({
