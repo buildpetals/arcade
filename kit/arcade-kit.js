@@ -42,6 +42,11 @@
   .btn.alt{background:#fff;color:var(--lav2);box-shadow:var(--shadow)} .btn.ghost{background:transparent;box-shadow:none;border:2px solid var(--lav);color:var(--lav2);padding:10px 16px;font-size:15px}
   .btn:disabled{opacity:.55}
   .hint{font-size:12px!important;opacity:.7}
+  .lb{margin:8px auto 4px;max-width:300px;text-align:left;background:#fff;border-radius:14px;padding:8px 12px;box-shadow:0 2px 6px rgba(40,30,70,.12)}
+  .lb b{display:block;font-size:12px;color:var(--lav2);text-align:center;margin-bottom:4px;letter-spacing:.04em}
+  .lb ol{margin:0;padding:0;list-style:none;font-size:13px;font-weight:600}
+  .lb li{display:flex;gap:8px;padding:2px 0}.lb li span:first-child{width:18px;color:var(--lav2)}.lb li span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lb li.me{color:var(--rose)}
   .big{font:700 40px/1.1 "Fredoka",sans-serif;color:var(--rose);margin:6px 0}
   .stars{font-size:22px;letter-spacing:2px;margin:2px 0}
   .pts{font-size:14px;font-weight:700;margin:6px 0}
@@ -292,6 +297,7 @@
       <button class="btn" id="startBtn">▶ Play</button>
       <p class="hint" id="progStart" style="font-weight:700"></p>
       <p class="hint" id="bestStart"></p>
+      <div class="lb hidden" id="lbStart"></div>
       <p class="hint">${game.hint}</p>
     </div></div>
     <div class="ov hidden" id="pauseScreen"><div class="card"><h1>PAUSED</h1><button class="btn" id="resumeBtn">▶ Resume</button></div></div>
@@ -307,6 +313,7 @@
       <p id="levelLine" style="font-weight:600;margin:2px 0"></p>
       <div class="levels" id="overLevels"></div>
       <p id="bestLine" class="hint"></p>
+      <div class="lb hidden" id="lbOver"></div>
       <div class="pts hidden" id="points"></div>
       <button class="btn ghost hidden" id="loginBtn">Log in to collect points</button>
       <button class="btn" id="againBtn">↻ Play Again</button>
@@ -453,6 +460,7 @@
         if (kit.state === "start" || kit.state === "over") applyProgress();
         return;
       }
+      if (m.type === "leaderboard" && m.game === game.id) return showBoard(m);
       if (m.type !== "pointsResult") return;
       if (prog && m.level != null) { prog.level = Math.max(prog.level, Number(m.level) || 0); prog.locked = prog.level >= LEVELS; if (m.resetLabel) prog.reset = m.resetLabel; applyProgress(); }
       const msgs = {
@@ -469,6 +477,22 @@
       $("loginBtn").classList.toggle("hidden", m.status !== "login");
     });
     $("loginBtn").onclick = () => send({ type: "login", game: game.id });
+    /* This month's top scores for this game, sent by the Build Petals page: { top: [{ name, score, levels, me }], myRank } */
+    function showBoard(m) {
+      const top = Array.isArray(m.top) ? m.top.slice(0, 5) : [];
+      ["lbStart", "lbOver"].forEach((id) => {
+        const el = $(id); el.textContent = ""; el.classList.toggle("hidden", !top.length); if (!top.length) return;
+        const h = document.createElement("b"); h.textContent = "🏆 TOP THIS MONTH"; el.appendChild(h);
+        const ol = document.createElement("ol");
+        top.forEach((r, i) => {
+          const li = document.createElement("li"); if (r.me) li.className = "me";
+          [String(i + 1), String(r.name || "Gardener"), String(Number(r.score) || 0)].forEach((t) => { const sp = document.createElement("span"); sp.textContent = t; li.appendChild(sp); });
+          ol.appendChild(li);
+        });
+        if (m.myRank > 5 && m.myBest != null) { const li = document.createElement("li"); li.className = "me"; ["#" + m.myRank, "You", String(m.myBest)].forEach((t) => { const sp = document.createElement("span"); sp.textContent = t; li.appendChild(sp); }); ol.appendChild(li); }
+        el.appendChild(ol);
+      });
+    }
 
     /* input */
     const toLocal = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale]; };
