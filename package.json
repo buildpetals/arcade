@@ -1,0 +1,11 @@
+{
+  "name": "buildpetals-arcade",
+  "private": true,
+  "description": "Build Petals Arcade games. No build step: every folder is served as-is by GitHub Pages.",
+  "scripts": {
+    "test": "node tests/smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}
