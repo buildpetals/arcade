@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Merge · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* PETAL MERGE — slide the whole garden; two matching plants that meet grow into the next one. */
+const N = 4, PAD = 14, GAP = 8, TOP = 70;
+const W = 360, CELL = (W - PAD * 2 - GAP * (N - 1)) / N, H = TOP + N * CELL + (N - 1) * GAP + PAD + 20;
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+
+/* growth ladder: seed -> sprout -> bud -> daisy -> tulip -> rose -> bluebell -> lily -> sunflower -> phantom */
+const SP = Arcade.softPaper;
+SP.paint.seed = (c) => { SP.piece(c, SP.ell(50, 56, 20, 27, 0.5), "#a9713f"); SP.piece(c, SP.ell(45, 48, 6, 10, 0.5), "#c99467"); };
+SP.paint.sprout = (c) => {
+  c.save(); c.strokeStyle = "#4f9e4c"; c.lineWidth = 6; c.lineCap = "round"; c.beginPath(); c.moveTo(50, 86); c.quadraticCurveTo(48, 60, 50, 44); c.stroke(); c.restore();
+  SP.piece(c, SP.ell(34, 42, 17, 9, -0.5), "#6cc96a"); SP.piece(c, SP.ell(66, 38, 17, 9, 0.5), "#6cc96a"); SP.piece(c, SP.rr(26, 82, 48, 12, 6), "#8a5a3b");
+};
+const LADDER = ["seed", "sprout", "bud", "daisy", "tulip", "rose", "bluebell", "poppy", "sunflower", "phantom"];
+const NAMES = ["seed", "sprout", "bud", "daisy", "tulip", "rose", "bluebell", "poppy", "sunflower", "phantom rose"];
+const TINT = ["#efe2cf", "#e1f3d6", "#fbe0ea", "#fff6d6", "#fde0e0", "#fbd9e8", "#dfe6ff", "#ffe3d3", "#fff0c4", "#d9ffe6"];
+/* per level: the plant to grow (index in LADDER) and how many */
+const TARGET = [2, 3, 4, 4, 5, 5, 6, 6, 7, 8];
+const COUNT = [3, 3, 2, 3, 1, 2, 1, 2, 1, 1];
+const plural = (n, i) => (n === 1 ? "a " + NAMES[i] : n + " " + (NAMES[i] === "daisy" ? "daisies" : NAMES[i] + "s"));
+
+let grid, tiles, nextId, animT, coolUntil, fx, best, stuckAt;
+const cellXY = (r, c) => [PAD + c * (CELL + GAP), TOP + r * (CELL + GAP)];
+
+function spawn(level) {
+  const free = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!grid[r][c]) free.push([r, c]);
+  if (!free.length) return;
+  const [r, c] = Arcade.pick(free), t = { id: nextId++, tier: Math.random() < (level >= 6 ? 0.18 : 0.1) ? 1 : 0, r, c, pr: r, pc: c, born: performance.now(), merged: 0 };
+  grid[r][c] = t; tiles.push(t);
+}
+function canMove() {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const t = grid[r][c]; if (!t) return true;
+    if (c < N - 1 && grid[r][c + 1] && grid[r][c + 1].tier === t.tier) return true;
+    if (r < N - 1 && grid[r + 1][c] && grid[r + 1][c].tier === t.tier) return true;
+  }
+  return false;
+}
+function move(dir, kit) {
+  if (kit.now < coolUntil) return;
+  const dr = dir === "up" ? -1 : dir === "down" ? 1 : 0, dc = dir === "left" ? -1 : dir === "right" ? 1 : 0;
+  const order = [...Array(N).keys()]; if (dr > 0 || dc > 0) order.reverse();
+  let moved = false, gained = 0, top = -1;
+  tiles = tiles.filter((t) => !t.gone);
+  for (const t of tiles) { t.pr = t.r; t.pc = t.c; t.justMerged = false; }
+  for (const r of order) for (const c of order) {
+    const cur = grid[r][c]; if (!cur) continue;
+    let nr = r, nc = c;
+    while (true) {
+      const tr = nr + dr, tc = nc + dc;
+      if (tr < 0 || tr >= N || tc < 0 || tc >= N) break;
+      const o = grid[tr][tc];
+      if (!o) { nr = tr; nc = tc; continue; }
+      if (o.tier === cur.tier && !o.justMerged && cur.tier < LADDER.length - 1) {
+        grid[r][c] = null; cur.r = tr; cur.c = tc; cur.gone = true;
+        o.tier++; o.justMerged = true; o.merged = kit.now; moved = true;
+        gained += 2 ** (o.tier + 1); top = Math.max(top, o.tier);
+        if (o.tier === TARGET[kit.level - 1]) { kit.collect(); const [x, y] = cellXY(tr, tc); fx.push({ x: x + CELL / 2, y, t: kit.now, txt: NAMES[o.tier] + "!", c: "#ffd166" }); }
+        nr = null; break;
+      }
+      break;
+    }
+    if (nr !== null && (nr !== r || nc !== c)) { grid[r][c] = null; grid[nr][nc] = cur; cur.r = nr; cur.c = nc; moved = true; }
+  }
+  if (!moved) return;
+  animT = kit.now; coolUntil = kit.now + 120;
+  if (gained) { kit.add(gained); if (top >= TARGET[kit.level - 1]) sfx("bonus"); else sfx("pop"); } else sfx("move");
+  if (top > best) best = top;
+  if (kit.state !== "play") return;
+  spawn(kit.level);
+  if (!canMove()) { kit.toast("No moves left!"); stuckAt = kit.now; coolUntil = Infinity; }
+}
+
+Arcade.run({
+  id: "petal-merge",
+  title: ["PETAL", "MERGE"],
+  blurb: "Swipe to slide every plant in the garden. When two of the same meet, they grow into the next plant: seed → sprout → bud → daisy → tulip → rose… Grow the flowers each level asks for before the garden fills up. All <b>10 levels</b>.",
+  hint: "Swipe or use arrow keys / WASD · Space to pause",
+  legend: [{ sprite: "seed", label: "2 seeds" }, { sprite: "sprout", label: "a sprout" }, { sprite: "bud", label: "2 sprouts → bud" }],
+  width: W, height: H, dpad: false, swipeAnywhere: true, swipeStep: 34, quietCollect: true, quietTap: true,
+  goal: (l) => COUNT[l - 1],
+  goalLabel: (l) => `grow ${plural(COUNT[l - 1], TARGET[l - 1])}`,
+  setup(level, kit) {
+    grid = Array.from({ length: N }, () => Array(N).fill(null)); tiles = []; nextId = 1; animT = 0; coolUntil = 0; fx = []; best = 0; stuckAt = 0;
+    spawn(level); spawn(level);
+    kit.setInfo("Grow: " + NAMES[TARGET[level - 1]]);
+  },
+  update(dt, kit) { fx = fx.filter((f) => kit.now - f.t < 800); if (stuckAt && kit.now - stuckAt > 700) { stuckAt = 0; kit.fail(); } },
+  key(k, kit) {
+    const d = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", W: "up", S: "down", A: "left", D: "right" }[k];
+    if (!d) return false; move(d, kit); return true;
+  },
+  swipe(d, kit) { move(d, kit); coolUntil = Math.max(coolUntil, kit.now + 260); },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H);
+    const lv = kit.level, tgt = TARGET[lv - 1];
+    /* goal strip */
+    ctx.save(); SP.piece(ctx, SP.rr(PAD, 12, W - PAD * 2, 46, 14), "#fffaf0"); ctx.restore();
+    let x = PAD + 10;
+    for (let i = 0; i <= tgt; i++) {
+      Arcade.drawSprite(ctx, LADDER[i], x, 19, 32, { alpha: i <= best || i === tgt ? 1 : 0.35 });
+      if (i === tgt) { ctx.strokeStyle = "#e2577f"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(x - 4, 15, 40, 40, 10); ctx.stroke(); }
+      x += Math.min(40, (W - PAD * 2 - 60) / (tgt + 1));
+    }
+    ctx.font = Arcade.font(13); ctx.textAlign = "right"; ctx.fillStyle = "#2a3260";
+    ctx.fillText(`${Math.min(kit.got, COUNT[lv - 1])}/${COUNT[lv - 1]}`, W - PAD - 10, 40);
+    /* board */
+    ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.beginPath(); ctx.roundRect(PAD - 6, TOP - 6, W - PAD * 2 + 12, N * CELL + (N - 1) * GAP + 12, 16); ctx.fill();
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const [cx, cy] = cellXY(r, c); ctx.fillStyle = "rgba(120,160,90,.22)"; ctx.beginPath(); ctx.roundRect(cx, cy, CELL, CELL, 12); ctx.fill(); }
+    const k = Math.min(1, (kit.now - animT) / 110), e = 1 - (1 - k) * (1 - k);
+    const drawTile = (t) => {
+      const [ax, ay] = cellXY(t.pr, t.pc), [bx, by] = cellXY(t.r, t.c);
+      const x = ax + (bx - ax) * e, y = ay + (by - ay) * e;
+      const grow = Math.max(0.1, Math.min(1, (kit.now - t.born) / 140)), pop = t.merged && kit.now - t.merged < 220 ? 1 + 0.12 * Math.sin(((kit.now - t.merged) / 220) * Math.PI) : 1;
+      const s = CELL * grow * pop, o = (CELL - s) / 2;
+      ctx.save(); SP.piece(ctx, SP.rr(x + o, y + o, s, s, 12), t.tier === tgt ? "#ffe9a8" : TINT[t.tier]); ctx.restore();
+      Arcade.drawSprite(ctx, LADDER[t.tier], x + o + s * 0.14, y + o + s * 0.1, s * 0.72);
+    };
+    for (const t of tiles) if (t.gone && k < 1) drawTile(t);
+    for (const t of tiles) if (!t.gone) drawTile(t);
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 22); ctx.fillText(f.txt, f.x, f.y - q * 22); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>

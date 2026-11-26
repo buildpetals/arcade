@@ -21,6 +21,7 @@
   .mhead{display:none}
   .tile small{font-size:13px;font-weight:600;color:#5d6488}
   .tile .tag{position:absolute;top:8px;right:8px;background:var(--gold);border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px}
+  .tile .tag.new{background:var(--rose);color:#fff}
   .tile.soon{background:rgba(255,255,255,.45);color:#7d84a8;box-shadow:none;border:2px dashed rgba(154,127,208,.45)}
   .tile.soon b{color:#7d84a8} .tile.soon small{color:#7d84a8} .tile.soon canvas{opacity:.45}
   .tile.done{opacity:.72;cursor:default}
@@ -60,7 +61,13 @@
   <p class="foot">New games added regularly · <a href="https://www.buildpetals.com" target="_top">buildpetals.com</a></p>
 </div>
 <script>
+/* New games can bring their own lobby icon: paint(c) draws inside a 100 x 100 box with Arcade.softPaper helpers. */
+const SPx = Arcade.softPaper;
 const GAMES = [
+  { slug: "petal-merge", name: "Petal Merge", sprite: "icon-petal-merge", note: "Grow by merging", isNew: true,
+    paint(c) { [["#efe2cf", 8, 8], ["#e1f3d6", 52, 8], ["#fbe0ea", 8, 52], ["#fff6d6", 52, 52]].forEach(([col, x, y]) => SPx.piece(c, SPx.rr(x, y, 40, 40, 10), col)); SPx.paint.bud(cx(c, 52, 52)); c.restore(); SPx.piece(c, SPx.ell(28, 30, 9, 12, 0.5), "#a9713f"); SPx.piece(c, SPx.ell(72, 34, 12, 6, 0.5), "#6cc96a"); SPx.piece(c, SPx.circ(28, 72, 9), "#ffc93c"); } },
+  { slug: "watering-pipes", name: "Watering Pipes", sprite: "icon-watering-pipes", note: "Water every flower", isNew: true,
+    paint(c) { c.lineCap = "round"; [["rgba(40,30,70,.25)", 22], ["#4f8fe0", 16], ["#9fd3f5", 6]].forEach(([col, w]) => { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(20, 6); c.lineTo(20, 50); c.lineTo(70, 50); c.lineTo(70, 80); c.stroke(); }); SPx.paint.rose(cx(c, 48, 46, 0.5)); c.restore(); } },
   { slug: "petal-snake", name: "Petal Snake", sprite: "rose", note: "Grow the vine" },
   { slug: "petal-pairs", name: "Petal Pairs", sprite: "tulip", note: "Match the cards" },
   { slug: "whack-a-weed", name: "Whack-a-Weed", sprite: "weed", note: "Tap the weeds" },
@@ -82,6 +89,9 @@ const GAMES = [
   { slug: "bud-timing", name: "Bud Timing", sprite: "bud", note: "Tap at full bloom" },
   { slug: "garden-guard", name: "Garden Guard", sprite: "snail", note: "Stop the pests" },
 ];
+/* draw a stock piece into part of an icon: shifts and scales the 100 x 100 box (call c.restore() after) */
+function cx(c, x, y, k) { c.save(); c.translate(x, y); c.scale(k || 0.4, k || 0.4); return c; }
+for (const g of GAMES) if (g.paint) SPx.paint[g.sprite] = g.paint;
 const tiles = document.getElementById("tiles");
 for (const g of GAMES) {
   const el = document.createElement(g.slug ? "a" : "div");
@@ -92,6 +102,7 @@ for (const g of GAMES) {
   if (g.slug) {
     const lvl = Arcade.store.get("bp_" + g.slug + "_bestlvl", 0);
     if (lvl) el.insertAdjacentHTML("beforeend", `<span class="tag">${lvl}/10</span>`);
+    else if (g.isNew) el.insertAdjacentHTML("beforeend", `<span class="tag new">New</span>`);
     el.insertAdjacentHTML("beforeend", `<span class="play" aria-hidden="true"><svg width="14" height="16" viewBox="0 0 14 16"><polygon points="2,1 13,8 2,15" fill="#fff6e5"/></svg></span>`);
     el.setAttribute("aria-label", "Play " + g.name);
   }
@@ -107,7 +118,7 @@ window.addEventListener("message", (e) => {
   for (const el of tiles.querySelectorAll("a.tile")) {
     const slug = el.getAttribute("href").replace("/", "");
     const lvl = Math.max(0, Number(m.games[slug]) || 0);
-    el.querySelectorAll(".tag").forEach((t) => t.remove());
+    el.querySelectorAll(lvl > 0 ? ".tag" : ".tag:not(.new)").forEach((t) => t.remove());
     el.classList.toggle("done", lvl >= 10);
     if (lvl >= 10) {
       el.querySelector("small").textContent = "Cleared · back " + (m.resetLabel || "next month");
