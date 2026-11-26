@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Compost Sort · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* COMPOST SORT — fresh flowers to the vase, garden scraps to the compost, seeds to the seed box.
+   Swipe (or tap a bin) before the timer runs out. */
+const W = 360, H = 520, IX = W / 2, IY = 236;
+const GOAL = [12, 15, 18, 20, 22, 25, 28, 30, 32, 35];
+const TIME = [2.8, 2.5, 2.2, 2.0, 1.8, 1.6, 1.4, 1.25, 1.1, 1.0];   // seconds per item
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+const S = Arcade.softPaper;
+S.paint.peel = (c) => { const p = new Path2D(); p.moveTo(50, 20); p.quadraticCurveTo(20, 50, 22, 84); p.quadraticCurveTo(36, 70, 50, 52); p.quadraticCurveTo(64, 70, 78, 84); p.quadraticCurveTo(80, 50, 50, 20); S.piece(c, p, "#ffd65c"); S.piece(c, S.rr(44, 10, 12, 16, 4), "#7a5a3a"); };
+S.paint.core = (c) => { const p = new Path2D(); p.moveTo(30, 16); p.quadraticCurveTo(50, 30, 70, 16); p.quadraticCurveTo(52, 50, 70, 86); p.quadraticCurveTo(50, 72, 30, 86); p.quadraticCurveTo(48, 50, 30, 16); S.piece(c, p, "#fff1d6"); S.piece(c, S.ell(50, 14, 22, 8), "#ef5b62"); S.piece(c, S.ell(50, 88, 20, 7), "#ef5b62"); c.fillStyle = "#5c2e0e"; [[46, 46], [54, 54]].forEach(([x, y]) => { c.beginPath(); c.ellipse(x, y, 3, 5, 0.3, 0, 7); c.fill(); }); };
+S.paint.leafy = (c) => { S.piece(c, S.ell(50, 50, 40, 20, -0.7), "#c9873a"); c.strokeStyle = "rgba(90,50,20,.5)"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(22, 78); c.lineTo(78, 22); c.stroke(); };
+S.paint.egg = (c) => { const p = new Path2D(); p.moveTo(18, 56); p.lineTo(30, 46); p.lineTo(40, 58); p.lineTo(52, 44); p.lineTo(64, 58); p.lineTo(74, 46); p.lineTo(84, 56); p.quadraticCurveTo(86, 92, 50, 92); p.quadraticCurveTo(14, 92, 18, 56); S.piece(c, p, "#fbf3e6"); };
+S.paint.wilted = (c) => { c.save(); c.translate(50, 50); c.rotate(0.6); c.translate(-50, -50); S.paint.rose(c, { p: "#b9a184", P: "#8a6a4a" }); c.restore(); };
+S.paint.packet = (c) => { S.piece(c, S.rr(20, 10, 60, 80, 10), "#fffaf0"); S.piece(c, S.rr(20, 10, 60, 18, 8), "#b79ae0"); c.save(); c.translate(32, 32); c.scale(0.36, 0.36); S.paint.sunflower(c); c.restore(); };
+S.paint.acorn = (c) => { S.piece(c, S.ell(50, 60, 24, 28), "#c98450"); S.piece(c, S.ell(50, 36, 30, 14), "#8a5a3b"); S.piece(c, S.rr(47, 12, 6, 16, 3), "#5c2e0e"); };
+S.paint.compost = (c) => { S.piece(c, S.rr(10, 26, 80, 68, 12), "#6b8f3a"); S.piece(c, S.rr(4, 16, 92, 16, 8), "#55762c"); c.font = "700 15px Fredoka, sans-serif"; c.textAlign = "center"; c.fillStyle = "#eaf6d9"; c.fillText("♻", 50, 70); };
+
+const KIND = {
+  vase: ["rose", "tulip", "daisy", "sunflower", "bluebell", "poppy"],
+  compost: ["peel", "core", "leafy", "egg", "wilted"],
+  seeds: ["packet", "acorn", "seed"],
+};
+S.paint.seed = S.paint.seed || ((c) => { S.piece(c, S.ell(50, 56, 20, 27, 0.5), "#a9713f"); S.piece(c, S.ell(45, 48, 6, 10, 0.5), "#c99467"); });
+const BINS = {
+  vase: { label: "VASE", key: "right", sprite: "vase", col: "#8fb4f5" },
+  compost: { label: "COMPOST", key: "left", sprite: "compost", col: "#a6d48e" },
+  seeds: { label: "SEED BOX", key: "up", sprite: "packet", col: "#f3d7a0" },
+};
+let item, fly, fx, cool, streak, binsOn;
+const binRect = (b) => b === "compost" ? { x: 14, y: 372, w: 150, h: 120 } : b === "vase" ? { x: W - 164, y: 372, w: 150, h: 120 } : { x: IX - 75, y: 16, w: 150, h: 96 };
+
+function nextItem(kit) {
+  const pool = binsOn.flatMap((b) => KIND[b].map((s) => [b, s]));
+  /* some wilted flowers look a lot like fresh ones: that's the trick */
+  const [bin, sprite] = Arcade.pick(pool);
+  item = { bin, sprite, t: kit.now, life: TIME[kit.level - 1] * 1000 / Arcade.speedUp(kit, 0.01, 0.15), wob: Math.random() * 6 };
+}
+function sort(to, kit) {
+  if (!item || kit.now < cool || !binsOn.includes(to)) return;
+  const ok = item.bin === to;
+  fly = { sprite: item.sprite, to, t: kit.now, ok }; item = null; cool = kit.now + 180;
+  const r = binRect(to);
+  if (ok) {
+    streak++; const pts = 10 + Math.min(20, streak * 2); kit.add(pts); sfx(streak % 5 === 0 ? "bonus" : "good");
+    fx.push({ x: r.x + r.w / 2, y: r.y - 6, t: kit.now, txt: streak % 5 === 0 ? `${streak} in a row!` : "+" + pts, c: "#ffd166" });
+    if (streak % 15 === 0 && kit.lives < 4) { kit.lives++; kit.setInfo('<b style="color:#ff8fc2">' + "♥".repeat(kit.lives) + "</b>"); kit.toast("+1 heart for a streak of " + streak + "!"); }
+    kit.collect();
+  } else { streak = 0; fx.push({ x: r.x + r.w / 2, y: r.y - 6, t: kit.now, txt: "wrong bin!", c: "#ff8fc2" }); kit.loseLife(); }
+}
+
+Arcade.run({
+  id: "compost-sort",
+  title: ["COMPOST", "SORT"],
+  blurb: "Tidy the potting shed! Fresh flowers go in the <b>vase</b>, garden scraps (and wilted flowers!) go in the <b>compost</b>, and from level 4 seeds go in the <b>seed box</b>. Swipe or tap the right bin before time runs out. A wrong bin or a dropped item costs a heart; every 15 in a row wins one back. All <b>10 levels</b>.",
+  hint: "Swipe ← compost · → vase · ↑ seed box, or tap a bin · Arrow keys · Space to pause",
+  legend: [{ sprite: "rose", label: "vase →" }, { sprite: "peel", label: "← compost" }, { sprite: "packet", label: "↑ seeds (lv 4+)" }],
+  width: W, height: H, lives: 4, dpad: false, swipeAnywhere: true, swipeStep: 30, quietCollect: true,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `sort ${GOAL[l - 1]} things${l === 4 ? " · new: the seed box!" : ""}`,
+  setup(level, kit) { binsOn = level >= 4 ? ["compost", "vase", "seeds"] : ["compost", "vase"]; fx = []; fly = null; cool = 0; streak = 0; item = null; nextItem(kit); item.t = kit.now + 400; },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 800);
+    if (fly && kit.now - fly.t > 220) fly = null;
+    if (!item && !fly) nextItem(kit);
+    if (item && kit.now - item.t > item.life) {
+      streak = 0; fx.push({ x: IX, y: IY - 50, t: kit.now, txt: "too slow!", c: "#ff8fc2" }); fly = { sprite: item.sprite, to: null, t: kit.now }; item = null; kit.loseLife();
+    }
+  },
+  swipe(d, kit) { const to = { left: "compost", right: "vase", up: "seeds" }[d]; if (to) sort(to, kit); },
+  key(k, kit) { const to = { ArrowLeft: "compost", ArrowRight: "vase", ArrowUp: "seeds", a: "compost", d: "vase", w: "seeds" }[k]; if (!to) return false; sort(to, kit); return true; },
+  pointerDown(x, y, kit) { for (const b of binsOn) { const r = binRect(b); if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return sort(b, kit); } },
+  draw(ctx, kit) {
+    ctx.fillStyle = "#efe3cf"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#e6d5bb"; for (let y = 0; y < H; y += 32) ctx.fillRect(0, y, W, 2);
+    ctx.save(); S.piece(ctx, S.rr(40, IY - 78, W - 80, 160, 24), "#c98d63"); ctx.restore();
+    for (const b of binsOn) {
+      const r = binRect(b), B = BINS[b];
+      ctx.save(); S.piece(ctx, S.rr(r.x, r.y, r.w, r.h, 18), B.col); ctx.restore();
+      Arcade.drawSprite(ctx, B.sprite, r.x + r.w / 2 - 28, r.y + 10, 56);
+      ctx.font = Arcade.font(14); ctx.textAlign = "center"; ctx.fillStyle = "#2a3260";
+      ctx.fillText(`${b === "compost" ? "← " : ""}${B.label}${b === "vase" ? " →" : ""}${b === "seeds" ? " ↑" : ""}`, r.x + r.w / 2, r.y + r.h - 14);
+    }
+    if (item) {
+      const k = Math.max(0, Math.min(1, (kit.now - item.t) / 160)), left = Math.max(0, Math.min(1, 1 - (kit.now - item.t) / item.life)), sz = 96 * (0.4 + 0.6 * k);
+      const wob = left < 0.3 ? Math.sin(kit.now / 40) * 3 : Math.sin(kit.now / 300 + item.wob) * 2;
+      Arcade.drawSprite(ctx, item.sprite, IX - sz / 2 + wob, IY - sz / 2 - 8, sz);
+      ctx.fillStyle = "rgba(0,0,0,.15)"; ctx.fillRect(IX - 70, IY + 56, 140, 8);
+      ctx.fillStyle = left > 0.5 ? "#6cc96a" : left > 0.25 ? "#ffc93c" : "#e2577f"; ctx.fillRect(IX - 70, IY + 56, 140 * left, 8);
+    }
+    if (fly) {
+      const k = Math.min(1, (kit.now - fly.t) / 220);
+      let x = IX, y = IY, a = 1 - k;
+      if (fly.to) { const r = binRect(fly.to); x = IX + (r.x + r.w / 2 - IX) * k; y = IY + (r.y + r.h / 2 - IY) * k; } else y = IY + k * 120;
+      ctx.globalAlpha = a; Arcade.drawSprite(ctx, fly.sprite, x - 40, y - 40, 80); ctx.globalAlpha = 1;
+    }
+    if (streak >= 3) { ctx.font = Arcade.font(14); ctx.textAlign = "center"; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx); const t = `streak ${streak}`; ctx.strokeText(t, IX, IY + 90); ctx.fillText(t, IX, IY + 90); }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 20); ctx.fillText(f.txt, f.x, f.y - q * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
