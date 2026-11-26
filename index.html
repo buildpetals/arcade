@@ -28,10 +28,20 @@
   .tile.done small{color:#7E5FB5;font-weight:700}
   .tile.done .play{display:none}
   .lobby [hidden]{display:none!important}
-  .tabs{display:flex;gap:6px;justify-content:center;margin:0 0 14px;flex-wrap:wrap}
-  .tabs button{border:0;border-radius:999px;padding:8px 14px;font:700 14px "Fredoka",sans-serif;background:#fff;color:var(--lav2);box-shadow:0 2px 6px rgba(40,30,70,.12);cursor:pointer}
-  .tabs button[aria-selected="true"]{background:var(--lav);color:#fff}
-  .tile .plays{font-size:12px;font-weight:700;color:var(--rose)}
+  .cats{display:flex;gap:6px;justify-content:center;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+  .cats button{border:0;border-radius:999px;padding:8px 14px;font:700 14px "Fredoka",sans-serif;background:#fff;color:var(--lav2);box-shadow:0 2px 6px rgba(40,30,70,.12);cursor:pointer;min-height:36px}
+  .cats button[aria-pressed="true"]{background:var(--lav);color:#fff}
+  .cats .lay{margin-left:6px;background:transparent;box-shadow:none;border:2px solid #fff;padding:6px 12px}
+  .catEmpty{background:#fff;border-radius:18px;padding:22px 16px;color:#5d6488;font-weight:600;box-shadow:0 4px 12px rgba(40,30,70,.16)}
+  /* List layout on wider screens: two columns of game rows (phones are always a list) */
+  .lobby.list .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .lobby.list .tile{flex-direction:row;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;text-align:left}
+  .lobby.list .tile .ic{flex:none;width:56px;height:56px;border-radius:14px;background:#f1eafc}
+  .lobby.list .tile canvas{width:40px!important;height:40px!important}
+  .lobby.list .tile .txt{flex:1;min-width:0;align-items:flex-start;gap:5px}
+  .lobby.list .tile b{font-size:16px;text-transform:none}
+  .lobby.list .tile .tag{position:static;flex:none}
+  .lobby.list .tile .play{display:flex;flex:none;width:44px;height:44px;border-radius:14px;background:var(--lav);align-items:center;justify-content:center}
   .boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;text-align:left}
   .board{background:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 4px 12px rgba(40,30,70,.16)}
   .board h2{margin:0;font:700 17px "Fredoka",sans-serif;color:var(--ink)} .bsub{margin:2px 0 8px;font-size:12px;color:#5d6488;font-weight:600}
@@ -61,6 +71,9 @@
     .tile.soon .play{display:none}
     .foot{text-align:center}
     .boards{grid-template-columns:minmax(0,1fr)}
+    .lobby.list .tiles{grid-template-columns:minmax(0,1fr)}
+    .cats{justify-content:flex-start}
+    .cats .lay{display:none}
   }
 </style>
 </head>
@@ -70,12 +83,18 @@
   <h1>PETALS <span>ARCADE</span></h1>
   <div class="mhead"><b>PICK A GAME</b><span id="count"></span></div>
   <p class="sub">Pick a game. Every game has 10 levels.</p>
-  <div class="tabs" id="tabs" hidden role="tablist">
-    <button role="tab" data-v="all" aria-selected="true">All games</button>
-    <button role="tab" data-v="popular" aria-selected="false">🔥 Most played</button>
-    <button role="tab" data-v="lb" aria-selected="false">🏆 Leaderboards</button>
+  <div class="cats" id="cats" role="group" aria-label="Game categories">
+    <button data-v="all" aria-pressed="true">All games</button>
+    <button data-v="popular" aria-pressed="false" hidden>🔥 Most played</button>
+    <button data-v="puzzle" aria-pressed="false">🧩 Puzzle</button>
+    <button data-v="reflex" aria-pressed="false">⚡ Quick reflexes</button>
+    <button data-v="aim" aria-pressed="false">🎯 Aim &amp; bounce</button>
+    <button data-v="memory" aria-pressed="false">🧠 Memory &amp; match</button>
+    <button data-v="lb" aria-pressed="false" hidden>🏆 Leaderboards</button>
+    <button class="lay" id="layBtn" aria-label="Switch between grid and list">☰ List</button>
   </div>
   <div class="tiles" id="tiles"></div>
+  <p class="catEmpty" id="catEmpty" hidden></p>
   <div class="boards" id="boards" hidden>
     <section class="board"><h2>Whole Arcade · this month</h2><p class="bsub">Most levels cleared across every game</p><ol id="overallList"></ol></section>
     <section class="board"><h2><select id="gamePick" aria-label="Pick a game"></select></h2><p class="bsub">Best scores this month</p><ol id="gameList"></ol></section>
@@ -126,6 +145,14 @@ const GAMES = [
 /* draw a stock piece into part of an icon: shifts and scales the 100 x 100 box (call c.restore() after) */
 function cx(c, x, y, k) { c.save(); c.translate(x, y); c.scale(k || 0.4, k || 0.4); return c; }
 for (const g of GAMES) if (g.paint) SPx.paint[g.sprite] = g.paint;
+/* Lobby categories. Add each new game's slug to one list; a game missing here still shows under All games. */
+const CATEGORIES = {
+  puzzle: ["wheelbarrow-jam", "petal-merge", "watering-pipes", "petal-words", "vase-sort", "hedge-maze", "pollen-path", "mow-lane", "bouquet-blocks"],
+  reflex: ["florist-rush", "compost-sort", "whack-a-weed", "petal-catcher", "bee-line", "lily-hop", "ladybug-leap", "bud-timing", "garden-guard", "petal-snake", "bloom-stack"],
+  aim: ["seed-volley", "seed-drop", "bloom-breaker", "petal-pop", "seed-sling"],
+  memory: ["petal-pairs", "bloom-echo", "garden-match"],
+};
+const MOST_PLAYED = 8; // how many games the Most played category lists
 const tiles = document.getElementById("tiles");
 for (const g of GAMES) {
   const el = document.createElement(g.slug ? "a" : "div");
@@ -144,7 +171,6 @@ for (const g of GAMES) {
 }
 // Opened on its own (not inside buildpetals.com): offer a clear way back to the rewards page.
 if (window.top === window) document.getElementById("backRewards").hidden = false;
-document.getElementById("count").textContent = GAMES.filter(g => g.slug).length + " games";
 // Monthly saved progress for members, sent by the Build Petals page: level badges and cleared games.
 window.addEventListener("message", (e) => {
   const m = e.data;
@@ -164,11 +190,14 @@ window.addEventListener("message", (e) => {
     }
   }
 });
-// Most played + leaderboards, sent by the Build Petals page once it has stats:
+// Categories are always on. Most played + leaderboards need the stats message from the Build Petals page:
 // { type: "stats", plays: { slug: n }, overall: [{ name, levels, score, me }], boards: { slug: [{ name, score, levels, me }] } }
-// Without that message the lobby stays exactly as before (no tabs).
+// Play counts only decide which games are in Most played and their order; the numbers are never shown.
 let stats = null, view = "all";
+try { view = sessionStorage.getItem("bp_arcade_cat") || "all"; } catch (e) {}
 const order = GAMES.filter((g) => g.slug).map((g) => g.slug);
+const catBtns = [...document.querySelectorAll("#cats button[data-v]")];
+const catEmpty = document.getElementById("catEmpty");
 function fillList(ol, rows, value) {
   ol.textContent = "";
   if (!rows || !rows.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "No scores yet this month. Be the first!"; ol.appendChild(li); return; }
@@ -180,27 +209,43 @@ function fillList(ol, rows, value) {
 }
 function showGameBoard() { const slug = document.getElementById("gamePick").value; fillList(document.getElementById("gameList"), stats && stats.boards && stats.boards[slug], (r) => (Number(r.score) || 0).toLocaleString()); }
 function setView(v) {
+  const btn = catBtns.find((b) => b.dataset.v === v);
+  if (!btn || btn.hidden) v = "all";
   view = v;
-  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  try { sessionStorage.setItem("bp_arcade_cat", v); } catch (e) {}
+  catBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
   tiles.hidden = v === "lb"; document.getElementById("boards").hidden = v !== "lb";
   const els = [...tiles.querySelectorAll("a.tile")], plays = (stats && stats.plays) || {};
   const slugOf = (el) => el.getAttribute("href").replace("/", "");
-  els.forEach((el) => { const p = el.querySelector(".plays"); if (p) p.remove(); });
-  const sorted = v === "popular" ? els.slice().sort((a, b) => (plays[slugOf(b)] || 0) - (plays[slugOf(a)] || 0)) : els.slice().sort((a, b) => order.indexOf(slugOf(a)) - order.indexOf(slugOf(b)));
-  sorted.forEach((el) => {
-    tiles.appendChild(el);
-    if (v === "popular") { const n = plays[slugOf(el)] || 0; el.querySelector(".txt").insertAdjacentHTML("beforeend", `<span class="plays">${n.toLocaleString()} ${n === 1 ? "play" : "plays"} this month</span>`); }
-  });
+  let shown;
+  if (v === "popular") {
+    shown = order.filter((g) => (Number(plays[g]) || 0) > 0).sort((a, b) => plays[b] - plays[a] || order.indexOf(a) - order.indexOf(b)).slice(0, MOST_PLAYED);
+  } else shown = v === "all" || v === "lb" ? order : order.filter((g) => (CATEGORIES[v] || []).includes(g));
+  els.sort((a, b) => (shown.indexOf(slugOf(a)) + 1 || 999) - (shown.indexOf(slugOf(b)) + 1 || 999) || order.indexOf(slugOf(a)) - order.indexOf(slugOf(b)))
+    .forEach((el) => { el.hidden = !shown.includes(slugOf(el)); tiles.appendChild(el); });
+  catEmpty.hidden = v === "lb" || shown.length > 0;
+  catEmpty.textContent = v === "popular" ? "No games played yet this month. Pick one and start the list!" : "No games here yet. More are on the way!";
+  document.getElementById("count").textContent = v === "lb" ? "" : shown.length + (shown.length === 1 ? " game" : " games");
   reportLobbyHeight();
 }
-document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
+catBtns.forEach((b) => (b.onclick = () => setView(b.dataset.v)));
+// Grid or list layout on wider screens (phones always use the list), remembered on this device.
+const lobbyEl = document.querySelector(".lobby"), layBtn = document.getElementById("layBtn");
+function setLayout(list) {
+  lobbyEl.classList.toggle("list", list);
+  layBtn.textContent = list ? "▦ Grid" : "☰ List";
+  try { localStorage.setItem("bp_arcade_layout", list ? "list" : "grid"); } catch (e) {}
+  reportLobbyHeight();
+}
+layBtn.onclick = () => setLayout(!lobbyEl.classList.contains("list"));
 const pick = document.getElementById("gamePick");
 GAMES.filter((g) => g.slug).forEach((g) => { const o = document.createElement("option"); o.value = g.slug; o.textContent = g.name; pick.appendChild(o); });
 pick.onchange = showGameBoard;
 window.addEventListener("message", (e) => {
   const m = e.data;
   if (!m || m.source !== "buildpetals-site" || m.type !== "stats") return;
-  stats = m; document.getElementById("tabs").hidden = false;
+  stats = m;
+  catBtns.forEach((b) => { if (b.dataset.v === "popular" || b.dataset.v === "lb") b.hidden = false; });
   fillList(document.getElementById("overallList"), m.overall, (r) => `${Number(r.levels) || 0} lv · ${(Number(r.score) || 0).toLocaleString()}`);
   showGameBoard(); setView(view);
 });
@@ -212,7 +257,9 @@ function reportLobbyHeight() {
     window.parent.postMessage({ source: "buildpetals-arcade", type: "lobby", height: h }, "*");
   } catch (e) {}
 }
-reportLobbyHeight();
+let savedLayout = "grid"; try { savedLayout = localStorage.getItem("bp_arcade_layout") || "grid"; } catch (e) {}
+setLayout(savedLayout === "list");
+setView(view);
 window.addEventListener("load", reportLobbyHeight);
 // Ask the Build Petals page for most-played counts and leaderboards (see wix/README.md).
 try { window.parent.postMessage({ source: "buildpetals-arcade", type: "lobbyReady" }, "*"); } catch (e) {}
