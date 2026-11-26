@@ -59,7 +59,7 @@ Arcade.run({
       if (x >= p.x - 6 && x <= p.x + p.w + 6 && y >= p.y - 64 && y <= p.y + p.h) {
         it.hit = kit.now;
         if (it.kind === "flower") { fx.push({ x: p.x + p.w / 2, y: p.y - 40, t: kit.now, txt: "not the flowers!", c: "#ff8fc2" }); kit.loseLife(); }
-        else { const g = it.kind === "gold" ? 40 : 10; kit.add(g); fx.push({ x: p.x + p.w / 2, y: p.y - 40, t: kit.now, txt: "+" + g, c: "#ffd166" }); kit.collect(); }
+        else { const g = it.kind === "gold" ? 40 : 10; if (it.kind === "gold") Arcade.sfx("bonus"); kit.add(g); fx.push({ x: p.x + p.w / 2, y: p.y - 40, t: kit.now, txt: "+" + g, c: "#ffd166" }); kit.collect(); }
         return;
       }
     }

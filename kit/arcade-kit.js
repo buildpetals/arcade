@@ -24,6 +24,7 @@
   .pill{background:#fff;border-radius:999px;padding:5px 11px;font-weight:800;font-size:clamp(11px,3vw,14px);white-space:nowrap;box-shadow:var(--shadow);color:var(--ink)}
   .pill b{color:var(--rose)}
   .ibtn{background:#fff;color:var(--lav2);border:0;border-radius:12px;width:34px;height:34px;font-size:15px;cursor:pointer;box-shadow:var(--shadow);flex:none}
+  .ibtn svg{display:block;margin:auto}
   .ibtn:active{transform:translateY(1px);box-shadow:0 1px 3px rgba(40,30,70,.2)}
   .home{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:48px;padding:10px 14px;border-radius:16px;background:var(--gold);color:var(--navy);font:700 17px "Fredoka",sans-serif;text-decoration:none;box-shadow:var(--shadow);flex:none}
   #bar{width:100%;height:10px;border-radius:99px;background:#fff;box-shadow:inset 0 1px 2px rgba(40,30,70,.12);overflow:hidden;flex:none}
@@ -113,43 +114,9 @@
   /* make a recoloured copy: Arcade.variant("rose","blueRose",{p:"#8fc7ff",P:"#4f7cff"},"Blue Rose") */
   A.variant = (base, key, pal, name) => {
     const b = ART[base], s = { name: name || b.name, pal: Object.assign({}, b.pal, pal), art: b.art };
+    PAINT[key] = (c) => (PAINT[base] || PAINT.mystery)(c, pal); /* vector painter, recoloured with the same palette letters */
     return (A.sprites[key] = Object.assign({ key }, s, { img: bake(s) }));
   };
-  A.drawSprite = (ctx, s, x, y, size, opt) => {
-    if (typeof s === "string") s = A.sprites[s];
-    ctx.save(); ctx.imageSmoothingEnabled = false;
-    if (opt && opt.alpha != null) ctx.globalAlpha = opt.alpha;
-    if (s.glow || (opt && opt.glow)) { ctx.shadowColor = (opt && opt.glow) || s.glow; ctx.shadowBlur = size * 0.6 + Math.sin(performance.now() / 180) * size * 0.2; }
-    ctx.drawImage(s.img, x, y, size, size); ctx.restore();
-  };
-  A.thumb = (s, px) => {
-    if (typeof s === "string") s = A.sprites[s];
-    const c = document.createElement("canvas"); c.width = c.height = px; c.style.width = c.style.height = px + "px"; c.style.imageRendering = "pixelated";
-    const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(s.img, 0, 0, px, px); return c;
-  };
-  /* building-block brick with studs */
-  A.brick = (ctx, x, y, w, h, body, top, stud, studs) => {
-    const u = Math.max(1, Math.round(Math.min(w, h) / 10));
-    ctx.fillStyle = body; ctx.fillRect(x + u, y + u, w - 2 * u, h - 2 * u);
-    ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x + u, y + h - 3 * u, w - 2 * u, 2 * u);
-    ctx.fillStyle = top; ctx.fillRect(x + u, y + u, w - 2 * u, u);
-    const n = studs || Math.max(1, Math.round(w / h)), s = Math.round(Math.min(h * 0.36, (w / n) * 0.5));
-    for (let i = 0; i < n; i++) {
-      const cx = x + (w / n) * (i + 0.5) - s / 2, cy = y + (h - s) / 2 - u;
-      ctx.fillStyle = stud; ctx.fillRect(cx, cy, s, s);
-      ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(cx, cy, s, u);
-    }
-  };
-  /* board background: soft garden lawn (style B) with a faint checker */
-  A.grid = (ctx, W, H, cell) => {
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#b6e4a2"); g.addColorStop(1, "#86c77a");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(255,255,255,.08)";
-    for (let y = 0; y < H / cell; y++) for (let x = 0; x < W / cell; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * cell, y * cell, cell, cell);
-  };
-  /* outline for text drawn on the board, so it reads on the light lawn */
-  A.ink = (ctx) => { ctx.lineWidth = 3.5; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(16,26,66,.85)"; };
   /* ---------- Soft Paper art: smooth vector pieces cut from paper, with soft shadows ---------- */
   const SP = (A.softPaper = {});
   const mixc = (h, t, a) => { const p = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)); const x = p(h), y = p(t); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * a).toString(16).padStart(2, "0")).join(""); };
@@ -173,15 +140,15 @@
   /* every painter draws inside a 100 x 100 box */
   const PAINT = {
     rose(c, o) { const p = (o && o.p) || "#f27aa3", P = (o && o.P) || "#d94f8c"; leaf(c, 26, 76, 16, -0.7); leaf(c, 74, 76, 16, 0.7); petals(c, 50, 48, 46, p, 5, 0.44, 0.36); pc(c, circ(50, 48, 19), SP.lt(p, 0.15)); pc(c, circ(50, 47, 12), P); pc(c, circ(52, 45, 6), SP.lt(P, 0.2)); },
-    tulip(c) { stroke(c, [[50, 70], [50, 98]], "#4f9e4c", 6); leaf(c, 36, 86, 14, -0.9); const p = new Path2D(); p.moveTo(22, 20); p.lineTo(36, 38); p.lineTo(50, 10); p.lineTo(64, 38); p.lineTo(78, 20); p.quadraticCurveTo(84, 74, 50, 76); p.quadraticCurveTo(16, 74, 22, 20); pc(c, p, "#ef5b62"); const q = new Path2D(); q.moveTo(50, 14); q.quadraticCurveTo(64, 46, 50, 74); q.quadraticCurveTo(38, 46, 50, 14); pc(c, q, "#d63f4a"); },
-    daisy(c) { petals(c, 50, 50, 58, "#ffffff", 12, 0.3, 0.12); pc(c, circ(50, 50, 16), "#ffc93c"); pc(c, circ(47, 47, 6), "#ffe08f"); },
+    tulip(c, o) { const r = (o && o.r) || "#ef5b62", R = (o && o.R) || "#d63f4a"; stroke(c, [[50, 70], [50, 98]], "#4f9e4c", 6); leaf(c, 36, 86, 14, -0.9); const p = new Path2D(); p.moveTo(22, 20); p.lineTo(36, 38); p.lineTo(50, 10); p.lineTo(64, 38); p.lineTo(78, 20); p.quadraticCurveTo(84, 74, 50, 76); p.quadraticCurveTo(16, 74, 22, 20); pc(c, p, r); const q = new Path2D(); q.moveTo(50, 14); q.quadraticCurveTo(64, 46, 50, 74); q.quadraticCurveTo(38, 46, 50, 14); pc(c, q, R); },
+    daisy(c, o) { petals(c, 50, 50, 58, (o && o.w) || "#ffffff", 12, 0.3, 0.12); pc(c, circ(50, 50, 16), "#ffc93c"); pc(c, circ(47, 47, 6), "#ffe08f"); },
     bluebell(c) { petals(c, 50, 50, 54, "#6f8ff5", 8, 0.34, 0.16); petals(c, 50, 50, 36, "#a9bbff", 8, 0.3, 0.14, 0.4); pc(c, circ(50, 50, 10), "#ffffff"); pc(c, circ(50, 50, 5), "#ffd166"); },
     sunflower(c) { petals(c, 50, 50, 56, "#ffc93c", 14, 0.28, 0.13); pc(c, circ(50, 50, 22), "#8a4b1f"); c.fillStyle = "rgba(255,255,255,.18)"; for (let i = 0; i < 9; i++) { c.beginPath(); c.arc(50 + Math.cos(i * 2.4) * 11 * ((i % 3) / 3 + 0.3), 50 + Math.sin(i * 2.4) * 11 * ((i % 3) / 3 + 0.3), 2.2, 0, 7); c.fill(); } },
     phantom(c) { PAINT.rose(c, { p: "#9df2bd", P: "#3fcf78" }); },
     mystery(c) { pc(c, rr(14, 14, 72, 72, 16), "#ffd166"); pc(c, rr(14, 40, 72, 12, 3), "#f4b942"); pc(c, rr(44, 14, 12, 72, 3), "#f4b942"); c.font = "700 44px Fredoka, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#101a42"; c.fillText("?", 50, 53); },
-    weed(c) { [-0.5, 0, 0.5].forEach((a) => { const p = new Path2D(); p.moveTo(40, 82); p.lineTo(50 + Math.sin(a) * 46, 10 + Math.abs(a) * 26); p.lineTo(60, 82); p.closePath(); pc(c, p, "#4c8a3a"); }); pc(c, circ(50, 66, 18), "#3e7a30"); stroke(c, [[38, 58], [46, 63]], "#101a42", 3); stroke(c, [[62, 58], [54, 63]], "#101a42", 3); pc(c, rr(10, 84, 80, 12, 6), "#8a5a3b"); },
+    weed(c, o) { const g = (o && o.g) || "#4c8a3a", G = (o && o.G) || "#3e7a30"; [-0.5, 0, 0.5].forEach((a) => { const p = new Path2D(); p.moveTo(40, 82); p.lineTo(50 + Math.sin(a) * 46, 10 + Math.abs(a) * 26); p.lineTo(60, 82); p.closePath(); pc(c, p, g); }); pc(c, circ(50, 66, 18), G); stroke(c, [[38, 58], [46, 63]], "#101a42", 3); stroke(c, [[62, 58], [54, 63]], "#101a42", 3); pc(c, rr(10, 84, 80, 12, 6), "#8a5a3b"); },
     bug(c) { pc(c, circ(50, 30, 14), "#2a2a3a"); pc(c, ell(50, 60, 30, 32), "#7e5fb5"); stroke(c, [[50, 30], [50, 92]], "#2a2a3a", 2); eyes(c, 50, 28, 4, 6); },
-    bee(c) { pc(c, ell(40, 26, 18, 12, -0.5), "#e8f6ff"); pc(c, ell(62, 26, 16, 11, 0.4), "#e8f6ff"); const b = ell(50, 58, 36, 26); pc(c, b, "#ffd166"); c.save(); c.clip(b); c.fillStyle = "#101a42"; [-12, 6].forEach((o) => c.fillRect(50 + o, 30, 9, 60)); c.restore(); eyes(c, 76, 54, 5, 0); },
+    bee(c, o) { pc(c, ell(40, 26, 18, 12, -0.5), "#e8f6ff"); pc(c, ell(62, 26, 16, 11, 0.4), "#e8f6ff"); const b = ell(50, 58, 36, 26); pc(c, b, (o && o.y) || "#ffd166"); c.save(); c.clip(b); c.fillStyle = "#101a42"; [-12, 6].forEach((o) => c.fillRect(50 + o, 30, 9, 60)); c.restore(); eyes(c, 76, 54, 5, 0); },
     ladybug(c) { pc(c, circ(50, 22, 16), "#2a2a38"); pc(c, circ(50, 56, 36), "#e8484f"); c.fillStyle = "#22222e"; c.fillRect(49, 22, 2, 70); [[-16, -10], [16, -10], [-14, 14], [14, 14]].forEach(([a, b]) => { c.beginPath(); c.arc(50 + a, 56 + b, 6, 0, 7); c.fill(); }); eyes(c, 50, 20, 4, 7); },
     frog(c) { pc(c, circ(32, 34, 12), "#6cc96a"); pc(c, circ(68, 34, 12), "#6cc96a"); pc(c, ell(50, 60, 38, 28), "#6cc96a"); eyes(c, 50, 33, 7, 18); stroke(c, [[38, 64], [50, 70], [62, 64]], "#2c5a2c", 3); },
     vase(c) { [["#f27aa3", 34], ["#ffd166", 50], ["#b79ae0", 66]].forEach(([col, x], i) => { stroke(c, [[x, 40], [50, 52]], "#4f9e4c", 3); petals(c, x, 20 + (i % 2) * 6, 22, col, 5); }); const p = new Path2D(); p.moveTo(36, 44); p.lineTo(64, 44); p.quadraticCurveTo(62, 52, 76, 70); p.quadraticCurveTo(80, 96, 50, 96); p.quadraticCurveTo(20, 96, 24, 70); p.quadraticCurveTo(38, 52, 36, 44); pc(c, p, "#8fb4f5"); },
@@ -192,6 +159,7 @@
     hive(c) { stroke(c, [[50, 2], [50, 14]], "#8a5a3b", 4); [[14, 30], [26, 42], [36, 56], [26, 70], [14, 84]].forEach(([y], i) => pc(c, rr(50 - [18, 30, 36, 30, 18][i], y - 8, [36, 60, 72, 60, 36][i], 16, 8), "#ffc93c")); pc(c, ell(50, 66, 8, 10), "#5a3a1a"); },
     mower(c) { stroke(c, [[66, 50], [92, 14]], "#444b66", 6); pc(c, rr(12, 40, 64, 34, 8), "#ef6f8e"); pc(c, circ(24, 80, 11), "#101a42"); pc(c, circ(64, 80, 11), "#101a42"); },
     bud(c) { stroke(c, [[50, 60], [50, 98]], "#4f9e4c", 6); leaf(c, 34, 82, 14, -0.6); leaf(c, 66, 86, 14, 0.6); const p = new Path2D(); p.moveTo(50, 6); p.quadraticCurveTo(80, 36, 68, 62); p.lineTo(32, 62); p.quadraticCurveTo(20, 36, 50, 6); pc(c, p, "#f27aa3"); const s = new Path2D(); s.moveTo(28, 48); s.quadraticCurveTo(50, 42, 72, 48); s.lineTo(66, 68); s.lineTo(34, 68); s.closePath(); pc(c, s, "#5fae5a"); },
+    breaker(c) { ["#f27aa3", "#ffc93c", "#8fb4f5"].forEach((col, r) => [0, 1, 2].forEach((i) => pc(c, rr(8 + i * 29 + (r % 2) * 6, 10 + r * 17, 26, 13, 4), col))); pc(c, circ(50, 66, 9), "#e8484f"); pc(c, rr(26, 84, 48, 9, 4), "#b79ae0"); },
     snail(c) { pc(c, ell(52, 78, 42, 12), "#e8c9a0"); pc(c, circ(44, 52, 28), "#ff8a5c"); c.strokeStyle = "#b85a35"; c.lineWidth = 3; c.beginPath(); for (let a = 0; a < 12; a += 0.3) { const r = 24 * (1 - a / 13); c.lineTo(44 + Math.cos(a) * r, 52 + Math.sin(a) * r); } c.stroke(); eyes(c, 86, 70, 5, 0); },
   };
   SP.paint = PAINT;
@@ -240,6 +208,57 @@
   /* Speed-up during a level: 1 at the start, rising perSec per second of play, capped at 1 + max. */
   A.speedUp = (kit, perSec, max) => 1 + Math.min(max == null ? 0.3 : max, (perSec == null ? 0.015 : perSec) * (kit.levelTime || 0));
 
+  /* ---------- sound + haptics: tiny synthesized effects, no audio files. Arcade.sfx("good") from any game. ---------- */
+  const muteKey = "bp_arcade_muted";
+  let actx = null, master = null; const lastPlayed = {};
+  A.muted = A.store.get(muteKey, false);
+  function audio() {
+    if (actx) { if (actx.state === "suspended") actx.resume().catch(() => {}); return actx; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    try { actx = new AC(); master = actx.createGain(); master.gain.value = 0.35; master.connect(actx.destination); } catch (e) { actx = null; }
+    return actx;
+  }
+  /* unlock audio on the first touch or key (browsers block sound until then) */
+  ["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, () => { if (!A.muted) audio(); }, { capture: true, passive: true }));
+  function tone(f, dur, o) {
+    o = o || {}; const a = actx, t = a.currentTime + (o.at || 0);
+    const osc = a.createOscillator(), g = a.createGain();
+    osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+    const v = o.vol == null ? 0.5 : o.vol;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02);
+  }
+  function noise(dur, o) {
+    o = o || {}; const a = actx, t = a.currentTime + (o.at || 0), n = Math.round(a.sampleRate * dur);
+    const buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = buf; f.type = "bandpass"; f.frequency.value = o.freq || 1800; f.Q.value = 0.8; g.gain.value = o.vol == null ? 0.4 : o.vol;
+    src.connect(f); f.connect(g); g.connect(master); src.start(t);
+  }
+  const SFX = {
+    tap: () => tone(520, 0.05, { type: "triangle", to: 420, vol: 0.18 }),
+    move: () => tone(360, 0.045, { type: "triangle", vol: 0.14 }),
+    good: () => { tone(880, 0.08, { vol: 0.35 }); tone(1320, 0.1, { at: 0.05, vol: 0.3 }); },
+    pop: () => { noise(0.07, { freq: 2400, vol: 0.35 }); tone(700, 0.06, { to: 1100, vol: 0.2 }); },
+    bonus: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.09, { at: i * 0.05, vol: 0.28 })),
+    bad: () => { tone(240, 0.2, { type: "sawtooth", to: 110, vol: 0.16 }); noise(0.12, { freq: 500, vol: 0.2 }); },
+    start: () => { tone(523, 0.08, { vol: 0.3 }); tone(784, 0.12, { at: 0.07, vol: 0.3 }); },
+    level: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, { at: i * 0.08, type: "triangle", vol: 0.32 })),
+    win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, { at: i * 0.09, type: "triangle", vol: 0.32 })),
+    over: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.2, { at: i * 0.12, type: "triangle", vol: 0.28 })),
+  };
+  const BUZZ = { bad: 60, over: [80, 60, 120], level: [30, 40, 30], win: [40, 40, 40, 40, 80] };
+  A.sfx = (name) => {
+    if (A.muted || !SFX[name]) return;
+    const now = performance.now(); if (now - (lastPlayed[name] || 0) < 45) return; lastPlayed[name] = now;
+    if (BUZZ[name] && navigator.vibrate) try { navigator.vibrate(BUZZ[name]); } catch (e) {}
+    if (!audio() || actx.state !== "running") return;
+    try { SFX[name](); } catch (e) {}
+  };
+  A.setMuted = (m) => { A.muted = !!m; A.store.set(muteKey, A.muted); if (A.muted && actx) actx.suspend().catch(() => {}); else audio(); };
+
   const TITLES = ["SPROUT!", "BUDDING!", "BLOOMING!", "GREEN THUMB!", "GARDENER!", "FLORIST!", "BOUQUET PRO!", "PETAL MASTER!", "BLOOM LEGEND!", "FULL BOUQUET!"];
 
   /* ---------- run a game ---------- */
@@ -257,6 +276,7 @@
       <div class="pill hidden" id="info"></div>
     </div>
     <div class="row">
+      <button class="ibtn" id="muteBtn" title="Sound" aria-label="Sound" aria-pressed="true"></button>
       <button class="ibtn" id="pauseBtn" title="Pause" aria-label="Pause">❚❚</button>
       <button class="ibtn" id="fsBtn" title="Full screen" aria-label="Full screen">⛶</button>
     </div>
@@ -314,13 +334,14 @@
       add(n) { kit.score += n; hud(); },
       collect(n) {
         kit.got += n == null ? 1 : n; hud();
+        if (kit.got < kit.goal() && !game.quietCollect) A.sfx("good");
         if (kit.got >= kit.goal() && kit.state === "play") levelClear();
       },
       setInfo(t) { const e = $("info"); if (t == null) e.classList.add("hidden"); else { e.classList.remove("hidden"); e.innerHTML = t; } },
       loseLife() {
         if (kit.lives == null || kit.state !== "play") return;
         kit.lives--; hearts();
-        if (kit.lives <= 0) gameOver(false); else toast("Ouch! " + kit.lives + " left");
+        if (kit.lives <= 0) gameOver(false); else { A.sfx("bad"); toast("Ouch! " + kit.lives + " left"); }
       },
       fail() { if (kit.state === "play") gameOver(false); },
       toast,
@@ -382,7 +403,7 @@
       if (prog && prog.locked) return;
       const s = startLevel();
       kit.score = 0; kit.level = s; kit.cleared = s - 1; kit.runStart = s; kit.startTime = Date.now();
-      setupLevel(); kit.state = "play"; show(null);
+      setupLevel(); kit.state = "play"; show(null); A.sfx("start");
     }
     function pause() { if (kit.state === "play") { kit.state = "pause"; show("pauseScreen"); } }
     function resume() { if (kit.state === "pause") { kit.state = "play"; show(null); } }
@@ -393,7 +414,7 @@
       kit.cleared = kit.level;
       const bonus = 50 * kit.level; kit.score += bonus; hud();
       if (kit.level >= LEVELS) return gameOver(true);
-      kit.state = "level";
+      kit.state = "level"; A.sfx("level");
       $("lcNum").textContent = kit.level; $("lcTitle").textContent = TITLES[kit.level - 1];
       $("lcStars").textContent = "🌸".repeat(Math.min(3, 1 + Math.floor(kit.level / 4)));
       $("lcBonus").textContent = `Level bonus +${bonus} · Score ${kit.score}`;
@@ -404,7 +425,7 @@
     function nextLevel() { if (kit.state !== "level") return; kit.level++; setupLevel(); kit.state = "play"; show(null); }
 
     function gameOver(won) {
-      kit.state = "over";
+      kit.state = "over"; A.sfx(won ? "win" : "over");
       const newBest = kit.score > kit.best;
       if (newBest) { kit.best = kit.score; A.store.set(bestKey, kit.best); }
       if (kit.cleared > kit.bestLevel) { kit.bestLevel = kit.cleared; A.store.set(lvlKey, kit.bestLevel); }
@@ -451,7 +472,7 @@
 
     /* input */
     const toLocal = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale]; };
-    cv.addEventListener("pointerdown", (e) => { if (kit.state !== "play") return; e.preventDefault(); const [x, y] = toLocal(e); game.pointerDown && game.pointerDown(x, y, kit); });
+    cv.addEventListener("pointerdown", (e) => { if (kit.state !== "play") return; e.preventDefault(); const [x, y] = toLocal(e); if (!game.quietTap) A.sfx("tap"); game.pointerDown && game.pointerDown(x, y, kit); });
     cv.addEventListener("pointermove", (e) => { if (kit.state !== "play") return; const [x, y] = toLocal(e); game.pointerMove && game.pointerMove(x, y, kit, e.buttons > 0 || e.pointerType === "touch"); });
     cv.addEventListener("pointerup", (e) => { if (kit.state !== "play") return; const [x, y] = toLocal(e); game.pointerUp && game.pointerUp(x, y, kit); });
     /* Swipes: on the board, or anywhere on the screen for games that set swipeAnywhere (e.g. Petal Snake). */
@@ -467,17 +488,17 @@
       if (tx === null || !game.swipe) return;
       const t = e.touches[0], dx = t.clientX - tx, dy = t.clientY - ty;
       if (Math.max(Math.abs(dx), Math.abs(dy)) > swipeMin) {
-        game.swipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"), kit);
+        game.swipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"), kit); A.sfx("move");
         tx = t.clientX; ty = t.clientY;
       }
     }, { passive: false });
     swipeArea.addEventListener("touchend", () => { tx = ty = null; });
-    document.querySelectorAll("#dpad button").forEach((b) => b.addEventListener("pointerdown", (e) => { e.preventDefault(); if (kit.state === "play" && game.swipe) game.swipe(b.dataset.d, kit); }));
+    document.querySelectorAll("#dpad button").forEach((b) => b.addEventListener("pointerdown", (e) => { e.preventDefault(); if (kit.state === "play" && game.swipe) { game.swipe(b.dataset.d, kit); A.sfx("move"); } }));
     const held = (A.keys = {});
     window.addEventListener("keyup", (e) => { held[e.key] = false; });
     window.addEventListener("keydown", (e) => {
       held[e.key] = true;
-      if (kit.state === "play" && game.key && game.key(e.key, kit)) { e.preventDefault(); return; }
+      if (kit.state === "play" && game.key && game.key(e.key, kit)) { e.preventDefault(); if (!e.repeat) A.sfx("move"); return; }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
       if (e.key === " " || e.key === "p" || e.key === "P" || e.key === "Enter" || e.key === "Escape") {
         e.preventDefault();
@@ -485,6 +506,13 @@
       }
     });
 
+    const SPK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>';
+    function muteLabel() {
+      const b = $("muteBtn"); b.innerHTML = SPK + (A.muted ? '<path d="M17 9l5 6M22 9l-5 6"/></svg>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>');
+      b.title = A.muted ? "Sound off" : "Sound on"; b.setAttribute("aria-label", b.title); b.setAttribute("aria-pressed", String(!A.muted));
+    }
+    muteLabel();
+    $("muteBtn").onclick = () => { A.setMuted(!A.muted); muteLabel(); A.sfx("tap"); };
     $("startBtn").onclick = start; $("againBtn").onclick = start; $("resumeBtn").onclick = resume; $("nextBtn").onclick = nextLevel;
     $("pauseBtn").onclick = () => (kit.state === "play" ? pause() : resume());
     /* Full screen. Inside buildpetals.com the page fills the window with the game and shows big Exit / Rewards
