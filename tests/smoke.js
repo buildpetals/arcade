@@ -36,6 +36,8 @@ const VIEWS = [{ name: "phone", width: 390, height: 780, hasTouch: true, isMobil
       // never leave the game page during random play
       await page.route("**/*", (r) => (r.request().isNavigationRequest() && r.request().frame() === page.mainFrame() && !r.request().url().startsWith(base + slug + "/") ? r.abort() : r.continue()));
       await page.goto(base + slug + "/");
+      // random taps can land on the game-over card as a game ends: take the links off so the test never leaves the game
+      await page.evaluate(() => document.querySelectorAll("a[href]").forEach((a) => a.removeAttribute("href")));
       await page.click("#startBtn");
       const box = await page.locator("#cv").boundingBox();
       const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
