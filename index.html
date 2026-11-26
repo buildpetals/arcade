@@ -27,6 +27,18 @@
   .tile.done{opacity:.72;cursor:default}
   .tile.done small{color:#7E5FB5;font-weight:700}
   .tile.done .play{display:none}
+  .lobby [hidden]{display:none!important}
+  .tabs{display:flex;gap:6px;justify-content:center;margin:0 0 14px;flex-wrap:wrap}
+  .tabs button{border:0;border-radius:999px;padding:8px 14px;font:700 14px "Fredoka",sans-serif;background:#fff;color:var(--lav2);box-shadow:0 2px 6px rgba(40,30,70,.12);cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--lav);color:#fff}
+  .tile .plays{font-size:12px;font-weight:700;color:var(--rose)}
+  .boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;text-align:left}
+  .board{background:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 4px 12px rgba(40,30,70,.16)}
+  .board h2{margin:0;font:700 17px "Fredoka",sans-serif;color:var(--ink)} .bsub{margin:2px 0 8px;font-size:12px;color:#5d6488;font-weight:600}
+  .board select{font:700 16px "Fredoka",sans-serif;color:var(--ink);border:2px solid #e9e0f8;border-radius:10px;padding:4px 8px;background:#fff;max-width:100%}
+  .board ol{margin:0;padding:0;list-style:none} .board li{display:flex;gap:10px;padding:6px 0;border-top:1px solid #f1eafc;font-weight:600;font-size:14px}
+  .board li:first-child{border-top:0} .board li .n{width:22px;color:var(--lav2);font-weight:700} .board li .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .board li .v{font-weight:700;color:var(--ink)}
+  .board li.me .who,.board li.me .v{color:var(--rose)} .board .empty{color:#7d84a8;font-size:13px;padding:6px 0}
   .foot{margin-top:18px;font-size:13px;color:#5d6488}
   .foot a{color:var(--lav2);font-weight:700}
   a.rw{display:flex;align-items:center;justify-content:center;min-height:48px;background:var(--gold);color:var(--navy);font-weight:700;font-size:15px;text-decoration:none;padding:10px 16px;border-radius:12px;box-shadow:0 4px 12px rgba(40,30,70,.16)}
@@ -48,6 +60,7 @@
     .tile .tag{position:static;flex:none}
     .tile.soon .play{display:none}
     .foot{text-align:center}
+    .boards{grid-template-columns:minmax(0,1fr)}
   }
 </style>
 </head>
@@ -57,7 +70,16 @@
   <h1>PETALS <span>ARCADE</span></h1>
   <div class="mhead"><b>PICK A GAME</b><span id="count"></span></div>
   <p class="sub">Pick a game. Every game has 10 levels.</p>
+  <div class="tabs" id="tabs" hidden role="tablist">
+    <button role="tab" data-v="all" aria-selected="true">All games</button>
+    <button role="tab" data-v="popular" aria-selected="false">🔥 Most played</button>
+    <button role="tab" data-v="lb" aria-selected="false">🏆 Leaderboards</button>
+  </div>
   <div class="tiles" id="tiles"></div>
+  <div class="boards" id="boards" hidden>
+    <section class="board"><h2>Whole Arcade · this month</h2><p class="bsub">Most levels cleared across every game</p><ol id="overallList"></ol></section>
+    <section class="board"><h2><select id="gamePick" aria-label="Pick a game"></select></h2><p class="bsub">Best scores this month</p><ol id="gameList"></ol></section>
+  </div>
   <p class="foot">New games added regularly · <a href="https://www.buildpetals.com" target="_top">buildpetals.com</a></p>
 </div>
 <script>
@@ -134,6 +156,46 @@ window.addEventListener("message", (e) => {
     }
   }
 });
+// Most played + leaderboards, sent by the Build Petals page once it has stats:
+// { type: "stats", plays: { slug: n }, overall: [{ name, levels, score, me }], boards: { slug: [{ name, score, levels, me }] } }
+// Without that message the lobby stays exactly as before (no tabs).
+let stats = null, view = "all";
+const order = GAMES.filter((g) => g.slug).map((g) => g.slug);
+function fillList(ol, rows, value) {
+  ol.textContent = "";
+  if (!rows || !rows.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "No scores yet this month. Be the first!"; ol.appendChild(li); return; }
+  rows.slice(0, 10).forEach((r, i) => {
+    const li = document.createElement("li"); if (r.me) li.className = "me";
+    [["n", i < 3 ? ["🥇", "🥈", "🥉"][i] : String(i + 1)], ["who", String(r.name || "Gardener")], ["v", value(r)]].forEach(([c, t]) => { const sp = document.createElement("span"); sp.className = c; sp.textContent = t; li.appendChild(sp); });
+    ol.appendChild(li);
+  });
+}
+function showGameBoard() { const slug = document.getElementById("gamePick").value; fillList(document.getElementById("gameList"), stats && stats.boards && stats.boards[slug], (r) => (Number(r.score) || 0).toLocaleString()); }
+function setView(v) {
+  view = v;
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  tiles.hidden = v === "lb"; document.getElementById("boards").hidden = v !== "lb";
+  const els = [...tiles.querySelectorAll("a.tile")], plays = (stats && stats.plays) || {};
+  const slugOf = (el) => el.getAttribute("href").replace("/", "");
+  els.forEach((el) => { const p = el.querySelector(".plays"); if (p) p.remove(); });
+  const sorted = v === "popular" ? els.slice().sort((a, b) => (plays[slugOf(b)] || 0) - (plays[slugOf(a)] || 0)) : els.slice().sort((a, b) => order.indexOf(slugOf(a)) - order.indexOf(slugOf(b)));
+  sorted.forEach((el) => {
+    tiles.appendChild(el);
+    if (v === "popular") { const n = plays[slugOf(el)] || 0; el.querySelector(".txt").insertAdjacentHTML("beforeend", `<span class="plays">${n.toLocaleString()} ${n === 1 ? "play" : "plays"} this month</span>`); }
+  });
+  reportLobbyHeight();
+}
+document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
+const pick = document.getElementById("gamePick");
+GAMES.filter((g) => g.slug).forEach((g) => { const o = document.createElement("option"); o.value = g.slug; o.textContent = g.name; pick.appendChild(o); });
+pick.onchange = showGameBoard;
+window.addEventListener("message", (e) => {
+  const m = e.data;
+  if (!m || m.source !== "buildpetals-site" || m.type !== "stats") return;
+  stats = m; document.getElementById("tabs").hidden = false;
+  fillList(document.getElementById("overallList"), m.overall, (r) => `${Number(r.levels) || 0} lv · ${(Number(r.score) || 0).toLocaleString()}`);
+  showGameBoard(); setView(view);
+});
 // Tell the Build Petals page how tall the game list is, so the Arcade box fits it.
 function reportLobbyHeight() {
   try {
@@ -144,6 +206,8 @@ function reportLobbyHeight() {
 }
 reportLobbyHeight();
 window.addEventListener("load", reportLobbyHeight);
+// Ask the Build Petals page for most-played counts and leaderboards (see wix/README.md).
+try { window.parent.postMessage({ source: "buildpetals-arcade", type: "lobbyReady" }, "*"); } catch (e) {}
 if (window.ResizeObserver) new ResizeObserver(reportLobbyHeight).observe(document.querySelector(".lobby"));
 </script>
 </body>
