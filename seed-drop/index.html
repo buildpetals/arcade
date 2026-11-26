@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Seed Drop · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* SEED DROP — pick a spot along the top and drop a seed. It bounces down through the garden pegs;
+   land it in a flower pot to plant it. Golden pots plant two. */
+const W = 360, H = 560, DROP_Y = 44, BIN_Y = 474, NB = 7, BW = W / NB, R = 7, PR = 6, G = 900;
+const GOAL = [3, 4, 5, 5, 6, 6, 7, 7, 8, 8];
+const SPARE = [3, 3, 3, 3, 2, 2, 2, 2, 2, 2];        // extra seeds beyond the goal
+const POTS = [3, 3, 3, 2, 2, 2, 2, 2, 1, 1];
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+const S = Arcade.softPaper;
+S.paint.seed = S.paint.seed || ((c) => { S.piece(c, S.ell(50, 56, 20, 27, 0.5), "#a9713f"); S.piece(c, S.ell(45, 48, 6, 10, 0.5), "#c99467"); });
+
+let pegs, bins, seed, dropX, seedsLeft, fx, shiftT, movers, landed, acc = 0;
+function layout(level) {
+  pegs = [];
+  for (let r = 0; r < 6; r++) { const y = 116 + r * 56, off = r % 2 ? BW / 2 : 0; for (let x = off + BW / 2; x < W; x += BW) if (x > 10 && x < W - 10 && Math.random() > 0.3) pegs.push({ x, y, hit: 0 }); }
+  /* from level 5 a few pegs become bumper flowers that kick harder; from level 7 two pegs slide */
+  movers = [];
+  if (level >= 5) for (let i = 0; i < Math.min(4, level - 3); i++) Arcade.pick(pegs).bumper = true;
+  if (level >= 7) for (let i = 0; i < 2; i++) { const p = Arcade.pick(pegs.filter((q) => !q.bumper)); p.move = { x0: p.x, a: BW * 0.45, sp: Arcade.rand(1, 1.8), ph: Math.random() * 6 }; movers.push(p); }
+  bins = Array(NB).fill("rock");
+  const order = [...Array(NB).keys()].sort(() => Math.random() - 0.5);
+  order.slice(0, POTS[level - 1]).forEach((i) => (bins[i] = "pot"));
+  if (level >= 3) bins[order[POTS[level - 1]]] = "gold";
+}
+/* one physics step; returns the peg it touched, if any */
+function stepSeed(sd, h) {
+  let touched = null;
+  sd.vy += G * h; sd.x += sd.vx * h; sd.y += sd.vy * h;
+  if (sd.x < R) { sd.x = R; sd.vx = Math.abs(sd.vx) * 0.7; } if (sd.x > W - R) { sd.x = W - R; sd.vx = -Math.abs(sd.vx) * 0.7; }
+  for (const p of pegs) {
+    const dx = sd.x - p.x, dy = sd.y - p.y, d = Math.hypot(dx, dy), m = R + PR;
+    if (d >= m || d === 0) continue;
+    const nx = dx / d, ny = dy / d, vn = sd.vx * nx + sd.vy * ny;
+    if (vn < 0) { const e = p.bumper ? 1.2 : 0.35; sd.vx -= (1 + e) * vn * nx; sd.vy -= (1 + e) * vn * ny; }
+    sd.x = p.x + nx * m; sd.y = p.y + ny * m; touched = p;
+  }
+  if (sd.y > BIN_Y - 4) for (let i = 1; i < NB; i++) { const x = i * BW; if (Math.abs(sd.x - x) < R + 2) { sd.x = x + Math.sign(sd.x - x || 1) * (R + 2); sd.vx = -sd.vx * 0.5; } }
+  return touched;
+}
+function shuffleBins(level) { if (level < 6) return; const b = bins.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } bins = b; shiftT = performance.now(); }
+function drop(kit) {
+  if (seed || seedsLeft <= 0 || kit.state !== "play") return;
+  seed = { x: dropX, y: DROP_Y, vx: 0, vy: 0, t: kit.now }; acc = 0; seedsLeft--; sfx("move");
+}
+
+Arcade.run({
+  id: "seed-drop",
+  title: ["SEED", "DROP"],
+  blurb: "Tap where along the top to drop a seed (or slide and let go). It bounces down through the garden; land it in a <b>flower pot</b> to plant it. <b>Golden pots</b> plant two! From level 6 the pots shuffle after every drop. Plant enough before you run out of seeds. All <b>10 levels</b>.",
+  hint: "Tap to drop · ← → and ↓ on a keyboard · Space to pause",
+  legend: [{ sprite: "pot", label: "+1" }, { sprite: "sunflower", label: "golden pot +2" }],
+  width: W, height: H, quietCollect: true, quietTap: true,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `plant ${GOAL[l - 1]} seeds with ${GOAL[l - 1] + SPARE[l - 1]}${l === 6 ? " · pots now shuffle!" : ""}`,
+  setup(level, kit) { layout(level); seed = null; dropX = W / 2; seedsLeft = GOAL[level - 1] + SPARE[level - 1]; fx = []; shiftT = 0; landed = null; },
+  pointerMove(x, y, kit, down) { if (!seed) dropX = Math.max(R + 2, Math.min(W - R - 2, x)); },
+  pointerUp(x, y, kit) { dropX = Math.max(R + 2, Math.min(W - R - 2, x)); drop(kit); },
+  key(k, kit) {
+    if (k === "ArrowLeft" || k === "a") { dropX = Math.max(R + 2, dropX - 12); return true; }
+    if (k === "ArrowRight" || k === "d") { dropX = Math.min(W - R - 2, dropX + 12); return true; }
+    if (k === "ArrowDown" || k === "s") { drop(kit); return true; }
+    return false;
+  },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 900);
+    const t = kit.now / 1000;
+    for (const p of movers) p.x = p.move.x0 + Math.sin(t * p.move.sp + p.move.ph) * p.move.a;
+    if (landed && kit.now - landed > 500) {
+      landed = null;
+      if (kit.got < kit.goal() && seedsLeft <= 0) { kit.toast("Out of seeds!"); kit.fail(); return; }
+      bins = bins.map((b) => (b === "bloom" ? "pot" : b === "bloomGold" ? "gold" : b));
+      shuffleBins(kit.level);
+    }
+    if (!seed) return;
+    if (kit.now - seed.t > 6000) { seed.vx += Arcade.rand(-80, 80); seed.vy += 60; seed.t = kit.now - 5000; } // never rests on a peg
+    /* fixed physics step, so the same drop spot always gives the same bounce on every device */
+    const h = 1 / 480; acc = Math.min(acc + dt, 0.1);
+    for (; acc >= h; acc -= h) {
+      const hitPeg = stepSeed(seed, h);
+      if (hitPeg && kit.now - hitPeg.hit > 60) { hitPeg.hit = kit.now; if (hitPeg.bumper) { kit.add(2); sfx("pop"); } }
+      if (seed.y > H - 30) {
+        const i = Math.max(0, Math.min(NB - 1, Math.floor(seed.x / BW))), b = bins[i], cx = (i + 0.5) * BW;
+        if (b === "pot" || b === "gold") {
+          const n = b === "gold" ? 2 : 1, pts = b === "gold" ? 60 : 25; kit.add(pts); sfx(b === "gold" ? "bonus" : "good");
+          fx.push({ x: cx, y: BIN_Y - 10, t: kit.now, txt: b === "gold" ? "+2 planted!" : "planted!", c: "#ffd166" });
+          bins[i] = b === "gold" ? "bloomGold" : "bloom";
+          seed = null; landed = kit.now; kit.collect(n); return;
+        }
+        fx.push({ x: cx, y: BIN_Y - 10, t: kit.now, txt: "missed", c: "#ff8fc2" }); sfx("bad");
+        seed = null; landed = kit.now; return;
+      }
+    }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H);
+    /* pegs */
+    for (const p of pegs) {
+      const k = kit.now - p.hit < 140 ? 1.35 : 1;
+      if (p.bumper) Arcade.drawSprite(ctx, "daisy", p.x - 11 * k, p.y - 11 * k, 22 * k);
+      else { ctx.save(); S.piece(ctx, S.circ(p.x, p.y, PR * k), p.move ? "#b79ae0" : "#5fae5a"); ctx.restore(); }
+    }
+    /* bins */
+    const sh = shiftT ? Math.min(1, (performance.now() - shiftT) / 300) : 1;
+    ctx.save(); S.piece(ctx, S.rr(0, BIN_Y, W, H - BIN_Y, 0), "#a7764a"); ctx.restore();
+    for (let i = 0; i < NB; i++) {
+      const b = bins[i], x = i * BW, cx = x + BW / 2, y = BIN_Y + 14 + (1 - sh) * 30;
+      ctx.globalAlpha = sh;
+      if (b === "pot" || b === "bloom") Arcade.drawSprite(ctx, "pot", cx - 22, y, 44);
+      else if (b === "gold" || b === "bloomGold") { ctx.save(); ctx.shadowColor = "#ffd166"; ctx.shadowBlur = 12; Arcade.drawSprite(ctx, "pot", cx - 22, y, 44); ctx.restore(); ctx.font = Arcade.font(11); ctx.textAlign = "center"; ctx.fillStyle = "#ffd166"; Arcade.ink(ctx); ctx.strokeText("×2", cx, y + 2); ctx.fillText("×2", cx, y + 2); }
+      else { ctx.save(); S.piece(ctx, S.ell(cx, y + 30, 16, 11), "#9aa0b4"); S.piece(ctx, S.ell(cx - 6, y + 26, 6, 4), "#b9bfd2"); ctx.restore(); }
+      if (b === "bloom" || b === "bloomGold") Arcade.drawSprite(ctx, b === "bloomGold" ? "sunflower" : "rose", cx - 14, y - 14, 28);
+      ctx.globalAlpha = 1;
+      if (i) { ctx.fillStyle = "#7a5230"; ctx.fillRect(x - 2, BIN_Y - 6, 4, H - BIN_Y + 6); }
+    }
+    /* dropper + aim line */
+    if (!seed && seedsLeft > 0) {
+      ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.setLineDash([4, 6]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(dropX, DROP_Y + 10); ctx.lineTo(dropX, 84); ctx.stroke(); ctx.setLineDash([]);
+      ctx.save(); S.piece(ctx, S.rr(dropX - 20, 8, 40, 22, 8), "#b79ae0"); ctx.restore();
+      Arcade.drawSprite(ctx, "seed", dropX - 11, DROP_Y - 12, 22);
+    }
+    if (seed) Arcade.drawSprite(ctx, "seed", seed.x - 10, seed.y - 10, 20);
+    /* seeds left */
+    ctx.font = Arcade.font(13); ctx.textAlign = "left"; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const lab = `Seeds ${seedsLeft}`; ctx.strokeText(lab, 8, 22); ctx.fillText(lab, 8, 22);
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 24); ctx.fillText(f.txt, f.x, f.y - q * 24); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
