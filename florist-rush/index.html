@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Florist Rush · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* FLORIST RUSH — customers line up with bouquet orders. Tap flowers to build a bouquet; when it matches
+   an order exactly it is handed over. Don't keep anyone waiting too long! */
+const W = 360, H = 520, SLOT_Y = 18, SLOT_H = 150, WRAP_Y = 200, BIN_Y = 340;
+const ALL = ["rose", "tulip", "daisy", "sunflower", "bluebell", "poppy"];
+const GOAL = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+const KINDS = [3, 4, 4, 5, 5, 5, 6, 6, 6, 6];
+const SIZE = [[2, 2], [2, 3], [2, 3], [2, 3], [3, 3], [3, 4], [3, 4], [3, 4], [3, 5], [4, 5]];
+const PATIENCE = [20, 18, 16, 15, 14, 13, 12, 11, 10, 9];   // seconds
+const SLOTS = [2, 2, 3, 3, 3, 3, 3, 3, 3, 3];
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+const FACES = ["#f6d1b8", "#e9b48f", "#c98d63", "#8d5a3b", "#f2c9a9"], HAIR = ["#3a2a1e", "#e0a400", "#9b4a2a", "#101a42", "#b79ae0", "#7a5a3a"];
+
+let slots, bouquet, kinds, spawnIn, fx, wilt;
+const binRects = () => { const n = kinds.length, cols = 3, rows = Math.ceil(n / cols), w = 100, h = 64, gx = (W - cols * w) / (cols + 1); return kinds.map((k, i) => ({ k, x: gx + (i % cols) * (w + gx), y: BIN_Y + Math.floor(i / cols) * (h + 12), w, h })); };
+const TRASH = { x: W - 64, y: WRAP_Y + 30, w: 50, h: 50 };
+const count = (arr) => arr.reduce((m, k) => ((m[k] = (m[k] || 0) + 1), m), {});
+const fits = (b, order) => { const a = count(b), o = count(order); return Object.keys(a).every((k) => (o[k] || 0) >= a[k]); };
+const same = (b, order) => b.length === order.length && fits(b, order);
+
+function newCustomer(kit) {
+  const lv = kit.level, [lo, hi] = SIZE[lv - 1], n = lo + Math.floor(Math.random() * (hi - lo + 1));
+  const order = Array.from({ length: n }, () => Arcade.pick(kinds)).sort((a, b) => kinds.indexOf(a) - kinds.indexOf(b));
+  return { order, born: kit.now, life: PATIENCE[lv - 1] * 1000 * (0.9 + n * 0.06) / Arcade.speedUp(kit, 0.01, 0.2), face: Arcade.pick(FACES), hair: Arcade.pick(HAIR), shirt: Arcade.pick(["#8fb4f5", "#f27aa3", "#6cc96a", "#ffc93c", "#b79ae0"]), happy: 0 };
+}
+const slotRect = (i) => { const n = slots.length, gap = 10, w = (W - 24 - gap * (n - 1)) / n; return { x: 12 + i * (w + gap), y: SLOT_Y, w, h: SLOT_H }; };
+
+Arcade.run({
+  id: "florist-rush",
+  title: ["FLORIST", "RUSH"],
+  blurb: "The shop is busy! Each customer wants a bouquet. Tap flowers to build one; when it matches an order exactly, it's handed over. A wrong flower wilts the bouquet, and a customer who waits too long walks out (that costs a heart). Serve enough customers to clear each of the <b>10 levels</b>.",
+  hint: "Tap flowers to build the bouquet · Bin to start over · Space to pause",
+  legend: [{ sprite: "rose", label: "tap to add" }, { sprite: "vase", label: "exact match" }],
+  width: W, height: H, lives: 3, quietCollect: true,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `serve ${GOAL[l - 1]} customers · ${KINDS[l - 1]} kinds of flowers`,
+  setup(level, kit) {
+    kinds = ALL.slice(0, KINDS[level - 1]); slots = Array(SLOTS[level - 1]).fill(null); bouquet = []; fx = []; wilt = 0;
+    slots[0] = newCustomer(kit); spawnIn = 2.5;
+  },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 900);
+    spawnIn -= dt;
+    const free = slots.indexOf(null);
+    if (free >= 0 && (spawnIn <= 0 || slots.every((s) => !s))) { slots[free] = newCustomer(kit); spawnIn = Arcade.lerpLevel(kit.level, 5, 2.2) * Arcade.rand(0.8, 1.2); }
+    for (let i = 0; i < slots.length; i++) {
+      const c = slots[i]; if (!c) continue;
+      if (c.happy) { if (kit.now - c.happy > 600) slots[i] = null; continue; }
+      if (kit.now - c.born > c.life) {
+        slots[i] = null; const r = slotRect(i); fx.push({ x: r.x + r.w / 2, y: r.y + 40, t: kit.now, txt: "walked out!", c: "#ff8fc2" });
+        kit.loseLife(); if (kit.state !== "play") return;
+        if (bouquet.length && !slots.some((s) => s && !s.happy && fits(bouquet, s.order))) bouquet = [];
+      }
+    }
+  },
+  pointerDown(x, y, kit) {
+    if (x >= TRASH.x && x <= TRASH.x + TRASH.w && y >= TRASH.y && y <= TRASH.y + TRASH.h) { if (bouquet.length) { bouquet = []; sfx("move"); } return; }
+    const b = binRects().find((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h); if (!b) return;
+    const next = bouquet.concat(b.k), waiting = slots.map((s, i) => [s, i]).filter(([s]) => s && !s.happy);
+    if (!waiting.some(([s]) => fits(next, s.order))) { bouquet = []; wilt = kit.now; sfx("bad"); kit.toast("Nobody ordered that, the bouquet wilted"); return; }
+    bouquet = next; sfx("tap");
+    /* hand over to the most impatient customer it matches */
+    const match = waiting.filter(([s]) => same(bouquet, s.order)).sort((a, b) => (kit.now - b[0].born) / b[0].life - (kit.now - a[0].born) / a[0].life)[0];
+    if (match) {
+      const [s, i] = match, left = 1 - (kit.now - s.born) / s.life, pts = 20 + s.order.length * 10 + Math.round(left * 40);
+      s.happy = kit.now; bouquet = []; kit.add(pts); sfx("good");
+      const r = slotRect(i); fx.push({ x: r.x + r.w / 2, y: r.y + 30, t: kit.now, txt: "+" + pts, c: "#ffd166" });
+      kit.collect();
+    }
+  },
+  draw(ctx, kit) {
+    const S = Arcade.softPaper;
+    ctx.fillStyle = "#f7eadb"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#efd9c3"; for (let x = 0; x < W; x += 24) ctx.fillRect(x, 0, 12, BIN_Y - 20);
+    /* counter */
+    ctx.save(); S.piece(ctx, S.rr(-10, SLOT_Y + SLOT_H - 6, W + 20, 26, 6), "#c98d63"); ctx.restore();
+    for (let i = 0; i < slots.length; i++) {
+      const c = slots[i], r = slotRect(i); if (!c) continue;
+      const left = c.happy ? 1 : Math.max(0, 1 - (kit.now - c.born) / c.life), cx = r.x + r.w / 2, by = r.y + r.h - 20;
+      const enter = Math.min(1, (kit.now - c.born) / 250), drop = c.happy ? Math.min(1, (kit.now - c.happy) / 600) : 0;
+      ctx.save(); ctx.globalAlpha = enter * (1 - drop);
+      /* customer */
+      ctx.save(); S.piece(ctx, S.rr(cx - 26, by - 26, 52, 40, 18), c.shirt); ctx.restore();
+      ctx.save(); S.piece(ctx, S.circ(cx, by - 42, 20), c.face); S.piece(ctx, S.ell(cx, by - 58, 21, 10), c.hair); ctx.restore();
+      ctx.fillStyle = "#101a42"; [-7, 7].forEach((d) => { ctx.beginPath(); ctx.arc(cx + d, by - 42, 2.6, 0, 7); ctx.fill(); });
+      ctx.strokeStyle = "#101a42"; ctx.lineWidth = 2; ctx.beginPath();
+      if (c.happy || left > 0.5) ctx.arc(cx, by - 37, 6, 0.2, Math.PI - 0.2); else if (left > 0.25) { ctx.moveTo(cx - 5, by - 32); ctx.lineTo(cx + 5, by - 32); } else ctx.arc(cx, by - 29, 6, Math.PI + 0.3, -0.3);
+      ctx.stroke();
+      /* order bubble */
+      const n = c.order.length, sz = Math.min(26, (r.w - 16) / n), bw = n * sz + 12;
+      ctx.save(); S.piece(ctx, S.rr(cx - bw / 2, r.y + 2, bw, sz + 12, 10), "#fff"); ctx.restore();
+      const have = count(bouquet), shown = {};
+      c.order.forEach((k, j) => { shown[k] = (shown[k] || 0) + 1; const got = (have[k] || 0) >= shown[k] && fits(bouquet, c.order); Arcade.drawSprite(ctx, k, cx - bw / 2 + 6 + j * sz, r.y + 8, sz, { alpha: got ? 1 : 0.55 }); if (got) { ctx.fillStyle = "#4cc36a"; ctx.beginPath(); ctx.arc(cx - bw / 2 + 6 + j * sz + sz - 3, r.y + 10 + sz - 4, 4, 0, 7); ctx.fill(); } });
+      /* patience */
+      ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(r.x + 8, r.y + sz + 20, r.w - 16, 6);
+      ctx.fillStyle = left > 0.5 ? "#6cc96a" : left > 0.25 ? "#ffc93c" : "#e2577f"; ctx.fillRect(r.x + 8, r.y + sz + 20, (r.w - 16) * left, 6);
+      ctx.restore();
+    }
+    /* bouquet being built */
+    const wk = wilt && kit.now - wilt < 400 ? (kit.now - wilt) / 400 : 0;
+    ctx.save(); const cone = new Path2D(); cone.moveTo(W / 2 - 60, WRAP_Y + 40); cone.lineTo(W / 2 + 60, WRAP_Y + 40); cone.lineTo(W / 2 + 10, WRAP_Y + 118); cone.lineTo(W / 2 - 10, WRAP_Y + 118); cone.closePath(); S.piece(ctx, cone, "#b79ae0"); ctx.restore();
+    bouquet.forEach((k, j) => { const n = bouquet.length, x = W / 2 - (n * 30) / 2 + j * 30, y = WRAP_Y + 8 + Math.abs(j - (n - 1) / 2) * 6; Arcade.drawSprite(ctx, k, x, y, 34); });
+    if (wk) { ctx.globalAlpha = 1 - wk; ctx.font = Arcade.font(15); ctx.textAlign = "center"; ctx.fillStyle = "#8a5a3b"; ctx.fillText("wilted…", W / 2, WRAP_Y + 30 + wk * 20); ctx.globalAlpha = 1; }
+    if (!bouquet.length && kit.levelTime < 8) { ctx.font = Arcade.font(13); ctx.textAlign = "center"; ctx.fillStyle = "#7d6a8a"; ctx.fillText("tap flowers below", W / 2, WRAP_Y + 28); }
+    ctx.save(); S.piece(ctx, S.rr(TRASH.x, TRASH.y, TRASH.w, TRASH.h, 12), "#fff"); ctx.restore();
+    ctx.font = Arcade.font(24); ctx.textAlign = "center"; ctx.fillStyle = "#7d6a8a"; ctx.fillText("↺", TRASH.x + TRASH.w / 2, TRASH.y + 34);
+    /* flower bins */
+    ctx.fillStyle = "#e3c9a8"; ctx.fillRect(0, BIN_Y - 16, W, H - BIN_Y + 16);
+    for (const b of binRects()) { ctx.save(); S.piece(ctx, S.rr(b.x, b.y, b.w, b.h, 14), "#fffaf0"); ctx.restore(); Arcade.drawSprite(ctx, b.k, b.x + b.w / 2 - 24, b.y + b.h / 2 - 24, 48); }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 20); ctx.fillText(f.txt, f.x, f.y - q * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>

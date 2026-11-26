@@ -86,6 +86,10 @@
 /* New games can bring their own lobby icon: paint(c) draws inside a 100 x 100 box with Arcade.softPaper helpers. */
 const SPx = Arcade.softPaper;
 const GAMES = [
+  { slug: "florist-rush", name: "Florist Rush", sprite: "icon-florist-rush", note: "Fill bouquet orders", isNew: true,
+    paint(c) { SPx.piece(c, SPx.rr(8, 8, 60, 34, 12), "#fff"); [["rose", 12], ["tulip", 38]].forEach(([k, x]) => { SPx.paint[k](cx(c, x, 11, 0.26)); c.restore(); }); const p = new Path2D(); p.moveTo(40, 52); p.lineTo(92, 52); p.lineTo(70, 96); p.lineTo(62, 96); p.closePath(); SPx.piece(c, p, "#b79ae0"); SPx.paint.rose(cx(c, 46, 30, 0.38)); c.restore(); } },
+  { slug: "compost-sort", name: "Compost Sort", sprite: "icon-compost-sort", note: "Sort it fast", isNew: true,
+    paint(c) { SPx.piece(c, SPx.rr(6, 46, 40, 46, 10), "#6b8f3a"); SPx.piece(c, SPx.rr(54, 46, 40, 46, 10), "#8fb4f5"); c.strokeStyle = "#2a3260"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(38, 22); c.lineTo(20, 22); c.moveTo(26, 15); c.lineTo(19, 22); c.lineTo(26, 29); c.moveTo(62, 22); c.lineTo(80, 22); c.moveTo(74, 15); c.lineTo(81, 22); c.lineTo(74, 29); c.stroke(); } },
   { slug: "wheelbarrow-jam", name: "Wheelbarrow Jam", sprite: "icon-wheelbarrow-jam", note: "Clear the jammed yard", isNew: true,
     paint(c) { [["#6f8ff5", 10, 12, 0], ["#ffc93c", 56, 30, 1], ["#f27aa3", 18, 58, 0]].forEach(([col, x, y, v]) => SPx.piece(c, SPx.rr(x, y, v ? 26 : 40, v ? 40 : 26, 8), col)); SPx.paint.rose(cx(c, 58, 66, 0.32)); c.restore(); } },
   { slug: "seed-volley", name: "Seed Volley", sprite: "icon-seed-volley", note: "Bounce seeds at weeds", isNew: true,
