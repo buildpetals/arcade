@@ -4,7 +4,7 @@ The games and lobby (this repo) already understand two new messages from the Bui
 
 | Message the page sends | To | What it shows |
 | --- | --- | --- |
-| `{ source: "buildpetals-site", type: "stats", plays, overall, boards }` | the lobby iframe | "Most played" and "Leaderboards" tabs |
+| `{ source: "buildpetals-site", type: "stats", plays, overall, boards }` | the lobby iframe | "Most played" category (top 8 by plays, counts never shown) and "Leaderboards" |
 | `{ source: "buildpetals-site", type: "leaderboard", game, top, myRank, myBest }` | a game iframe | "Top this month" on the start and game-over cards |
 
 ## 1. Collections (CMS)
