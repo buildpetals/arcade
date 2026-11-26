@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Wheelbarrow Jam · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* WHEELBARROW JAM — tap a wheelbarrow to roll it out of the jammed yard. It parks at the loading spots,
+   and flowers of its colour hop in from the line. Three flowers fill a barrow and it heads off. */
+const W = 360, H = 560, COLS = 6, ROWS = 7, CELL = 50, YX = (W - COLS * CELL) / 2, YY = 196;
+const QY = 34, DY = 112;
+const KINDS = [
+  { fl: "rose", col: "#f27aa3" }, { fl: "sunflower", col: "#ffc93c" }, { fl: "bluebell", col: "#6f8ff5" },
+  { fl: "tulip", col: "#ef5b62" }, { fl: "poppy", col: "#ff8a3d" }, { fl: "phantom", col: "#5fcf8a" },
+];
+const BARROWS = [6, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const COLORS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6];
+const SPOTS = [5, 5, 5, 5, 4, 4, 4, 4, 4, 4];
+const WINDOW = [2, 3, 3, 4, 4, 5, 5, 6, 6, 7];  // how far the flower line is shuffled away from an easy order
+const DIR = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+
+let barrows, queue, spots, hop, fx, stuckCool, shake;
+const cells = (b) => { const [dr, dc] = DIR[b.dir]; return [[b.r, b.c], [b.r - dr, b.c - dc]]; };
+const inYard = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
+function pathCells(b) { const [dr, dc] = DIR[b.dir], out = []; let r = b.r + dr, c = b.c + dc; while (inYard(r, c)) { out.push([r, c]); r += dr; c += dc; } return out; }
+
+function build(level) {
+  let n = BARROWS[level - 1]; const k = COLORS[level - 1];
+  for (let tries = 0; ; tries++) {
+    if (tries && tries % 60 === 0) n--; // a very full yard can be hard to generate: try one fewer
+
+    const occ = Array.from({ length: ROWS }, () => Array(COLS).fill(-1)), placed = [];
+    /* placed in order; each barrow's way out is clear of the ones placed before it,
+       so rolling them out in reverse order always works and the yard is never truly stuck */
+    let guard = 0;
+    while (placed.length < n && guard++ < 3000) {
+      const b = { dir: Arcade.pick(Object.keys(DIR)), r: Math.floor(Math.random() * ROWS), c: Math.floor(Math.random() * COLS) };
+      const cs = cells(b); if (!cs.every(([r, c]) => inYard(r, c) && occ[r][c] < 0)) continue;
+      if (pathCells(b).some(([r, c]) => occ[r][c] >= 0)) continue;
+      cs.forEach(([r, c]) => (occ[r][c] = placed.length)); placed.push(b);
+    }
+    if (placed.length < n) continue;
+    /* colours: every colour used, spread out */
+    const colors = []; for (let i = 0; i < n; i++) colors.push(i % k); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [colors[i], colors[j]] = [colors[j], colors[i]]; }
+    placed.forEach((b, i) => Object.assign(b, { id: i, kind: colors[i], state: "yard", load: 0, t: 0 }));
+    /* the flower line follows one easy roll-out order, then gets locally shuffled */
+    const q = []; for (let i = n - 1; i >= 0; i--) q.push(placed[i].kind, placed[i].kind, placed[i].kind);
+    const w = WINDOW[level - 1];
+    for (let i = 0; i < q.length; i++) { const j = Math.min(q.length - 1, i + Math.floor(Math.random() * w)); [q[i], q[j]] = [q[j], q[i]]; }
+    barrows = placed; queue = q; return;
+  }
+}
+const spotX = (i) => { const n = spots.length, gap = 8, w = (W - 24 - gap * (n - 1)) / n; return [12 + i * (w + gap), w]; };
+function occupied() { const occ = Array.from({ length: ROWS }, () => Array(COLS).fill(null)); for (const b of barrows) if (b.state === "yard") cells(b).forEach(([r, c]) => (occ[r][c] = b)); return occ; }
+
+function tryRoll(b, kit) {
+  const occ = occupied(), block = pathCells(b).find(([r, c]) => occ[r][c]);
+  if (block) { shake = { b, t: kit.now }; sfx("bad"); kit.toast("Blocked!"); return; }
+  const free = spots.indexOf(null);
+  if (free < 0) { kit.toast("Loading spots are full!"); sfx("bad"); return; }
+  spots[free] = b; b.state = "rolling"; b.spot = free; b.t = kit.now; sfx("move"); kit.add(5);
+}
+
+Arcade.run({
+  id: "wheelbarrow-jam",
+  title: ["WHEELBARROW", "JAM"],
+  blurb: "The garden yard is jammed! Tap a wheelbarrow to roll it out the way it faces, if nothing blocks it. It parks in a loading spot and flowers of its colour hop in from the line. Plan ahead: if the spots fill up with barrows nobody in line wants, you lose a heart. All <b>10 levels</b>.",
+  hint: "Tap a wheelbarrow to roll it out · Space to pause",
+  legend: [{ sprite: "rose", label: "3 fill a barrow" }, { sprite: "sunflower", label: "match colours" }],
+  width: W, height: H, lives: 3, quietCollect: true, quietTap: true,
+  goal: (l) => (barrows ? barrows.length : BARROWS[l - 1]) * 3,
+  goalLabel: (l) => `load ${BARROWS[l - 1] * 3} flowers into ${BARROWS[l - 1]} barrows · ${COLORS[l - 1]} colours · ${SPOTS[l - 1]} spots`,
+  setup(level, kit) { build(level); spots = Array(SPOTS[level - 1]).fill(null); hop = null; fx = []; stuckCool = 0; shake = null; },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 800);
+    for (const b of barrows) {
+      if (b.state === "rolling" && kit.now - b.t > 380) { b.state = "dock"; b.t = kit.now; }
+      if (b.state === "leaving" && kit.now - b.t > 420) { b.state = "gone"; spots[b.spot] = null; }
+    }
+    if (hop) {
+      if (kit.now - hop.t < 170) return;
+      hop.b.load++; queue.shift(); kit.add(5); kit.collect(); sfx("pop");
+      if (hop.b.load === 3) { hop.b.state = "leaving"; hop.b.t = kit.now; kit.add(30); sfx("good"); const [x, w] = spotX(hop.b.spot); fx.push({ x: x + w / 2, y: DY - 6, t: kit.now, txt: "+30", c: "#ffd166" }); }
+      hop = null;
+    }
+    if (!queue.length || kit.state !== "play") return;
+    const want = queue[0];
+    const cand = spots.filter((b) => b && b.state === "dock" && b.kind === want && b.load < 3).sort((a, b) => b.load - a.load)[0];
+    if (cand) { hop = { b: cand, t: kit.now }; return; }
+    /* stuck: every spot holds a parked barrow and none wants the next flower */
+    const busy = spots.some((b) => b && b.state !== "dock");
+    if (!busy && spots.every((b) => b) && kit.now > stuckCool) {
+      stuckCool = kit.now + 1200;
+      kit.loseLife(); if (kit.state !== "play") return;
+      /* a helper sends the unwanted flowers to the back of the line */
+      let moved = 0; while (moved < queue.length && !spots.some((b) => b.kind === queue[0])) { queue.push(queue.shift()); moved++; }
+      if (moved >= queue.length) { /* nobody parked wants anything left: free the oldest spot */ const b = spots.find((x) => x); b.state = "gone"; spots[b.spot] = null; queue.push(...Array(b.load).fill(b.kind)); kit.got -= b.load; kit.collect(0); }
+    }
+  },
+  pointerDown(x, y, kit) {
+    const c = Math.floor((x - YX) / CELL), r = Math.floor((y - YY) / CELL);
+    if (!inYard(r, c)) return;
+    const b = occupied()[r][c]; if (b) tryRoll(b, kit);
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H);
+    const s = Arcade.softPaper;
+    /* flower line */
+    ctx.save(); s.piece(ctx, s.rr(8, 8, W - 16, 56, 16), "#fffaf0"); ctx.restore();
+    const show = Math.min(queue.length, 8);
+    for (let i = show - 1; i >= 0; i--) {
+      if (hop && i === 0) continue;
+      const x = 18 + i * 37, sz = i === 0 ? 36 : 30, bob = Math.sin(kit.now / 260 + i) * 1.5;
+      Arcade.drawSprite(ctx, KINDS[queue[i]].fl, x, QY - sz / 2 + bob + (i === 0 ? 0 : 3), sz);
+    }
+    if (queue.length > show) { ctx.font = Arcade.font(12); ctx.fillStyle = "#5d6488"; ctx.textAlign = "right"; ctx.fillText("+" + (queue.length - show), W - 16, QY + 5); }
+    ctx.fillStyle = "#e2577f"; ctx.beginPath(); ctx.moveTo(26, 62); ctx.lineTo(36, 54); ctx.lineTo(46, 62); ctx.fill();
+    /* loading spots */
+    for (let i = 0; i < spots.length; i++) {
+      const [x, w] = spotX(i); ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.setLineDash([6, 5]); ctx.strokeStyle = "rgba(122,90,190,.45)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x, DY - 32, w, 64, 12); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+      const b = spots[i]; if (!b || b.state === "rolling") continue;
+      const k = b.state === "leaving" ? Math.min(1, (kit.now - b.t) / 420) : 0, pop = b.state === "dock" ? Math.min(1, (kit.now - b.t) / 160) : 1;
+      ctx.save(); ctx.globalAlpha = 1 - k; ctx.translate(x + w / 2, DY - k * 60); ctx.scale(0.6 + 0.4 * pop, 0.6 + 0.4 * pop);
+      drawBarrow(ctx, KINDS[b.kind].col, "up", 46, 60, b.load, KINDS[b.kind].fl); ctx.restore();
+    }
+    /* yard */
+    ctx.save(); s.piece(ctx, s.rr(YX - 8, YY - 8, COLS * CELL + 16, ROWS * CELL + 16, 18), "#d9b98c"); ctx.restore();
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { ctx.fillStyle = (r + c) % 2 ? "rgba(255,255,255,.10)" : "rgba(120,80,40,.06)"; ctx.fillRect(YX + c * CELL, YY + r * CELL, CELL, CELL); }
+    for (const b of barrows) {
+      if (b.state !== "yard" && b.state !== "rolling") continue;
+      const [[hr, hc], [tr, tc]] = cells(b), [dr, dc] = DIR[b.dir];
+      let cx = YX + ((hc + tc) / 2 + 0.5) * CELL, cy = YY + ((hr + tr) / 2 + 0.5) * CELL, a = 1;
+      if (b.state === "rolling") { const k = Math.min(1, (kit.now - b.t) / 380); cx += dc * k * k * 360; cy += dr * k * k * 360; a = 1 - k; }
+      if (shake && shake.b === b && kit.now - shake.t < 300) cx += Math.sin((kit.now - shake.t) / 20) * 4;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); drawBarrow(ctx, KINDS[b.kind].col, b.dir, CELL - 6, CELL * 2 - 8, -1); ctx.restore();
+    }
+    /* a flower hopping into its barrow */
+    if (hop) {
+      const k = Math.min(1, (kit.now - hop.t) / 170), [x, w] = spotX(hop.b.spot), tx = x + w / 2, ty = DY - 6;
+      const fx0 = 36, fy0 = QY, px = fx0 + (tx - fx0) * k, py = fy0 + (ty - fy0) * k - Math.sin(k * Math.PI) * 30;
+      Arcade.drawSprite(ctx, KINDS[queue[0]].fl, px - 16, py - 16, 32);
+    }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 20); ctx.fillText(f.txt, f.x, f.y - q * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+
+/* a wheelbarrow centred on 0,0: tray of its colour, wheel at the front, handles at the back */
+function drawBarrow(ctx, col, dir, w, h, load, fl) {
+  const s = Arcade.softPaper, ang = { up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 }[dir];
+  ctx.save(); ctx.rotate(ang);
+  ctx.strokeStyle = "#7a5a3a"; ctx.lineWidth = 3.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-w * 0.26, h * 0.2); ctx.lineTo(-w * 0.3, h * 0.47); ctx.moveTo(w * 0.26, h * 0.2); ctx.lineTo(w * 0.3, h * 0.47); ctx.stroke();
+  s.piece(ctx, s.rr(-w * 0.17, -h * 0.5, w * 0.34, h * 0.16, 6), "#3a3550");
+  s.piece(ctx, s.rr(-w / 2, -h * 0.4, w, h * 0.68, 12), col);
+  s.piece(ctx, s.rr(-w / 2 + 5, -h * 0.4 + 5, w - 10, h * 0.68 - 10, 8), s.dk(col, 0.18));
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(0, -h * 0.33); ctx.lineTo(-7, -h * 0.23); ctx.lineTo(7, -h * 0.23); ctx.fill();
+  ctx.restore();
+  if (load >= 0) for (let i = 0; i < 3; i++) {
+    const x = -w * 0.3 + i * w * 0.3;
+    if (i < load) Arcade.drawSprite(ctx, fl, x - 9, -14, 18);
+    else { ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.beginPath(); ctx.arc(x, -5, 4.5, 0, 7); ctx.fill(); }
+  }
+}
+</script>
+</body>
+</html>

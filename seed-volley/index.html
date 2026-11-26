@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Seed Volley · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* SEED VOLLEY — aim, let go, and a stream of seeds bounces around the garden. Each hit knocks one off a
+   weed clump's number. After every volley the weeds creep one row closer. */
+const W = 360, H = 560, COLS = 7, PAD = 8, CELL = (W - PAD * 2) / COLS, TOP = 46, ROWS = 9, FLOOR = TOP + ROWS * CELL + 18;
+const R = 6, SPEED = 640, GAP_MS = 75;
+const GOAL = [8, 12, 16, 20, 24, 28, 32, 36, 40, 45];
+const SEEDS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13];    // seeds per volley at the start of a level
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+const SP = Arcade.softPaper;
+SP.paint.seedpack = (c) => { SP.piece(c, SP.rr(18, 10, 64, 80, 10), "#fffaf0"); SP.piece(c, SP.rr(18, 10, 64, 18, 8), "#b79ae0"); SP.paint.daisy && (c.save(), c.translate(30, 34), c.scale(0.4, 0.4), SP.paint.daisy(c), c.restore()); c.font = "700 26px Fredoka, sans-serif"; c.textAlign = "center"; c.fillStyle = "#e2577f"; c.fillText("+1", 50, 84); };
+
+let blocks, packs, seeds, launchX, nextX, aim, firing, fired, inAir, seedCount, extra, turn, fx, volleyT, phase;
+const cellRect = (r, c) => [PAD + c * CELL + 2, TOP + r * CELL + 2, CELL - 4, CELL - 4];
+
+function newRow(level) {
+  const base = Math.max(1, Math.round(level * 0.8 + turn * (0.6 + level * 0.08)));
+  const cols = [...Array(COLS).keys()].sort(() => Math.random() - 0.5), n = 2 + Math.floor(Math.random() * Math.min(5, 2 + level / 2));
+  cols.slice(0, n).forEach((c) => blocks.push({ r: 0, c, hp: Math.random() < 0.25 ? base * 2 : base, max: 0, hit: 0 }));
+  const free = cols.slice(n); if (free.length && Math.random() < 0.45) packs.push({ r: 0, c: free[0] });
+  blocks.forEach((b) => (b.max = Math.max(b.max, b.hp)));
+}
+function advance(kit) {
+  turn++;
+  blocks.forEach((b) => b.r++); packs.forEach((p) => p.r++);
+  packs = packs.filter((p) => p.r < ROWS);
+  const landed = blocks.filter((b) => b.r >= ROWS - 1);
+  if (landed.length) {
+    blocks = blocks.filter((b) => b.r < ROWS - 1);
+    kit.loseLife(); if (kit.state !== "play") return;
+    fx.push({ x: W / 2, y: FLOOR - 40, t: kit.now, txt: "the weeds reached the beds!", c: "#ff8fc2" });
+  }
+  newRow(kit.level);
+}
+
+Arcade.run({
+  id: "seed-volley",
+  title: ["SEED", "VOLLEY"],
+  blurb: "Weeds are creeping down the garden! Drag to aim, let go, and a stream of seeds bounces off the walls and the weed clumps. Each hit knocks one off a clump's number; at zero it's gone. Grab <b>+1</b> seed packets for a bigger volley. If the weeds reach the flower beds you lose a heart. All <b>10 levels</b>.",
+  hint: "Drag and let go to fire · Space to pause",
+  legend: [{ sprite: "weed", label: "hit to zero" }, { sprite: "seedpack", label: "+1 seed" }],
+  width: W, height: H, lives: 3, quietTap: true, quietCollect: true,
+  goal: (l) => GOAL[l - 1],
+  goalLabel: (l) => `clear ${GOAL[l - 1]} weed clumps`,
+  setup(level, kit) {
+    blocks = []; packs = []; seeds = []; fx = []; turn = 0; aim = null; firing = false; fired = 0; inAir = 0; extra = 0; phase = "aim";
+    seedCount = SEEDS[level - 1]; launchX = W / 2; nextX = null;
+    newRow(level); advance(kit);
+  },
+  pointerDown(x, y) { if (phase === "aim") aim = { x, y, on: true }; },
+  pointerMove(x, y, kit, down) { if (phase === "aim" && aim && down) { aim.x = x; aim.y = y; } },
+  pointerUp(x, y, kit) {
+    if (phase !== "aim" || !aim) return;
+    aim.x = x; aim.y = y;
+    let dx = aim.x - launchX, dy = Math.min(aim.y - FLOOR, -1); const a = Math.atan2(dy, dx), lim = 0.18;
+    aim = null;
+    const ang = Math.max(-Math.PI + lim, Math.min(-lim, a));
+    if (Math.hypot(dx, dy) < 18) return;
+    phase = "fly"; firing = { vx: Math.cos(ang) * SPEED, vy: Math.sin(ang) * SPEED, next: kit.now }; fired = 0; nextX = null; volleyT = kit.now; sfx("start");
+  },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 900);
+    if (phase !== "fly") return;
+    if (firing && fired < seedCount && kit.now >= firing.next) { seeds.push({ x: launchX, y: FLOOR - R, vx: firing.vx, vy: firing.vy }); fired++; firing.next = kit.now + GAP_MS; }
+    const fast = kit.now - volleyT > 7000 ? 2.5 : 1, steps = 6, h = (dt * fast) / steps;
+    for (let s = 0; s < steps; s++) for (const b of seeds) {
+      if (b.done) continue;
+      b.x += b.vx * h; b.y += b.vy * h;
+      if (b.x < R) { b.x = R; b.vx = Math.abs(b.vx); } if (b.x > W - R) { b.x = W - R; b.vx = -Math.abs(b.vx); }
+      if (b.y < R) { b.y = R; b.vy = Math.abs(b.vy); }
+      if (b.y > FLOOR - R && b.vy > 0) { b.done = true; if (nextX == null) nextX = Math.max(14, Math.min(W - 14, b.x)); continue; }
+      for (const k of blocks) {
+        if (k.hp <= 0) continue;
+        const [x, y, w, hh] = cellRect(k.r, k.c), cx = Math.max(x, Math.min(b.x, x + w)), cy = Math.max(y, Math.min(b.y, y + hh));
+        const ddx = b.x - cx, ddy = b.y - cy; if (ddx * ddx + ddy * ddy > R * R) continue;
+        if (Math.abs(ddx) > Math.abs(ddy)) { b.vx = Math.sign(ddx || -b.vx) * Math.abs(b.vx); b.x = cx + Math.sign(ddx || 1) * R; }
+        else { b.vy = Math.sign(ddy || -b.vy) * Math.abs(b.vy); b.y = cy + Math.sign(ddy || 1) * R; }
+        k.hp--; k.hit = kit.now; kit.add(1); sfx("tap");
+        if (k.hp <= 0) { kit.add(10); sfx("pop"); fx.push({ x: x + w / 2, y: y + hh / 2, t: kit.now, txt: "+10", c: "#ffd166" }); kit.collect(); if (kit.state !== "play") return; }
+        break;
+      }
+      for (const p of packs) { const [x, y, w] = cellRect(p.r, p.c); if (!p.got && Math.hypot(b.x - (x + w / 2), b.y - (y + w / 2)) < R + 12) { p.got = true; extra++; sfx("bonus"); fx.push({ x: x + w / 2, y, t: kit.now, txt: "+1 seed", c: "#b79ae0" }); } }
+    }
+    blocks = blocks.filter((k) => k.hp > 0); packs = packs.filter((p) => !p.got);
+    seeds = seeds.filter((b) => !b.done);
+    if (fired >= seedCount && !seeds.length) {
+      phase = "aim"; firing = null; seedCount += extra; extra = 0; launchX = nextX == null ? launchX : nextX;
+      advance(kit);
+    }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H);
+    /* flower beds along the bottom: the line the weeds must not reach */
+    ctx.save(); SP.piece(ctx, SP.rr(0, FLOOR, W, H - FLOOR, 0), "#a7764a"); ctx.restore();
+    ctx.strokeStyle = "rgba(226,87,127,.45)"; ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, TOP + (ROWS - 1) * CELL); ctx.lineTo(W, TOP + (ROWS - 1) * CELL); ctx.stroke(); ctx.setLineDash([]);
+    for (let i = 0; i < 7; i++) Arcade.drawSprite(ctx, ["rose", "tulip", "daisy", "sunflower", "bluebell", "poppy", "rose"][i], 10 + i * 50, FLOOR + 14, 26);
+    for (const p of packs) { const [x, y, w] = cellRect(p.r, p.c); Arcade.drawSprite(ctx, "seedpack", x + w * 0.15, y + w * 0.12 + Math.sin(kit.now / 300 + p.c) * 2, w * 0.7); }
+    ctx.textAlign = "center";
+    for (const k of blocks) {
+      const [x, y, w, h] = cellRect(k.r, k.c), f = Math.min(1, k.hp / Math.max(8, k.max)), pop = kit.now - k.hit < 90 ? 2 : 0;
+      const col = `hsl(${110 - f * 70},${45 + f * 20}%,${62 - f * 22}%)`;
+      ctx.save(); SP.piece(ctx, SP.rr(x - pop, y - pop, w + pop * 2, h + pop * 2, 12), col); ctx.restore();
+      Arcade.drawSprite(ctx, "weed", x + w * 0.1, y + 2, w * 0.42, { alpha: 0.55 });
+      ctx.font = Arcade.font(k.hp > 99 ? 15 : 18); ctx.fillStyle = "#fff"; Arcade.ink(ctx); ctx.strokeText(k.hp, x + w / 2, y + h * 0.72); ctx.fillText(k.hp, x + w / 2, y + h * 0.72);
+    }
+    /* aim guide */
+    if (phase === "aim" && aim) {
+      let dx = aim.x - launchX, dy = Math.min(aim.y - FLOOR, -1); const a = Math.max(-Math.PI + 0.18, Math.min(-0.18, Math.atan2(dy, dx)));
+      let x = launchX, y = FLOOR - R, vx = Math.cos(a), vy = Math.sin(a);
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      for (let i = 0; i < 26; i++) { x += vx * 14; y += vy * 14; if (x < R || x > W - R) { vx = -vx; x = Math.max(R, Math.min(W - R, x)); } if (y < TOP) break; ctx.globalAlpha = 1 - i / 28; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+    /* seeds */
+    for (const b of seeds) { ctx.save(); SP.piece(ctx, SP.ell(b.x, b.y, R, R * 0.75, Math.atan2(b.vy, b.vx)), "#a9713f"); ctx.restore(); }
+    /* launcher */
+    if (phase === "aim" || (firing && fired < seedCount)) { ctx.save(); SP.piece(ctx, SP.ell(launchX, FLOOR - R, R + 1, R), "#a9713f"); ctx.restore(); }
+    ctx.font = Arcade.font(13); ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const left = phase === "fly" ? seedCount - fired : seedCount, lab = "×" + left + (extra ? "  +" + extra : "");
+    ctx.textAlign = launchX > W - 60 ? "right" : "left"; const lx = launchX > W - 60 ? launchX - 12 : launchX + 12;
+    ctx.strokeText(lab, lx, FLOOR - 6); ctx.fillText(lab, lx, FLOOR - 6);
+    if (phase === "aim" && !aim && kit.levelTime < 6) { ctx.textAlign = "center"; ctx.font = Arcade.font(15); ctx.strokeText("Drag to aim, let go to fire", W / 2, FLOOR - 40); ctx.fillText("Drag to aim, let go to fire", W / 2, FLOOR - 40); }
+    if (phase === "fly" && kit.now - volleyT > 7000) { ctx.textAlign = "right"; ctx.font = Arcade.font(12); ctx.strokeText("fast forward ▸▸", W - 8, 18); ctx.fillText("fast forward ▸▸", W - 8, 18); }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(14);
+    for (const f of fx) { const q = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 20); ctx.fillText(f.txt, f.x, f.y - q * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>

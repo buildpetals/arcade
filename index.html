@@ -64,6 +64,10 @@
 /* New games can bring their own lobby icon: paint(c) draws inside a 100 x 100 box with Arcade.softPaper helpers. */
 const SPx = Arcade.softPaper;
 const GAMES = [
+  { slug: "wheelbarrow-jam", name: "Wheelbarrow Jam", sprite: "icon-wheelbarrow-jam", note: "Clear the jammed yard", isNew: true,
+    paint(c) { [["#6f8ff5", 10, 12, 0], ["#ffc93c", 56, 30, 1], ["#f27aa3", 18, 58, 0]].forEach(([col, x, y, v]) => SPx.piece(c, SPx.rr(x, y, v ? 26 : 40, v ? 40 : 26, 8), col)); SPx.paint.rose(cx(c, 58, 66, 0.32)); c.restore(); } },
+  { slug: "seed-volley", name: "Seed Volley", sprite: "icon-seed-volley", note: "Bounce seeds at weeds", isNew: true,
+    paint(c) { [[8, 8, "#8fc77a"], [54, 8, "#6fb35f"], [30, 40, "#a6d48e"]].forEach(([x, y, col]) => SPx.piece(c, SPx.rr(x, y, 38, 30, 8), col)); c.fillStyle = "rgba(255,255,255,.95)"; [[50, 92], [56, 80], [62, 68], [68, 56]].forEach(([x, y]) => { c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill(); }); SPx.piece(c, SPx.ell(46, 92, 7, 5), "#a9713f"); } },
   { slug: "petal-merge", name: "Petal Merge", sprite: "icon-petal-merge", note: "Grow by merging", isNew: true,
     paint(c) { [["#efe2cf", 8, 8], ["#e1f3d6", 52, 8], ["#fbe0ea", 8, 52], ["#fff6d6", 52, 52]].forEach(([col, x, y]) => SPx.piece(c, SPx.rr(x, y, 40, 40, 10), col)); SPx.paint.bud(cx(c, 52, 52)); c.restore(); SPx.piece(c, SPx.ell(28, 30, 9, 12, 0.5), "#a9713f"); SPx.piece(c, SPx.ell(72, 34, 12, 6, 0.5), "#6cc96a"); SPx.piece(c, SPx.circ(28, 72, 9), "#ffc93c"); } },
   { slug: "watering-pipes", name: "Watering Pipes", sprite: "icon-watering-pipes", note: "Water every flower", isNew: true,
