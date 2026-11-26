@@ -48,11 +48,13 @@ const VIEWS = [{ name: "phone", width: 390, height: 780, hasTouch: true, isMobil
         await page.keyboard.press(keys[i % 4]);
         await page.waitForTimeout(120);
       }
+      // a random tap can briefly reload the page; read the board once it has settled
+      await page.waitForLoadState("load").catch(() => {});
       const blank = await page.evaluate(() => {
         const c = document.getElementById("cv"), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
         const first = d.slice(0, 4).join(); for (let i = 0; i < d.length; i += 4 * 97) if (d.slice(i, i + 4).join() !== first) return false; return true;
-      });
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+      }).catch((e) => { errs.push("could not read the board: " + e.message.split("\n")[0]); return false; });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1).catch(() => false);
       if (errs.length) fails.push(`${slug} (${v.name}): ${[...new Set(errs)].join(" | ")}`);
       if (blank) fails.push(`${slug} (${v.name}): the game board is blank`);
       if (overflow) fails.push(`${slug} (${v.name}): the page scrolls sideways`);
