@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Petal Words · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* PETAL WORDS — a garden word search. Drag across the letters to circle each hidden word before time runs out. */
+const W = 360, H = 560, GX = 12, GY = 12, GS = 336;
+const SIZE = [6, 6, 7, 7, 8, 8, 8, 9, 9, 9];
+const COUNT = [4, 5, 5, 6, 6, 7, 7, 8, 8, 9];
+const TIME = [120, 120, 120, 115, 110, 105, 100, 95, 90, 90];   // seconds
+const WORDS = ["ROSE", "TULIP", "DAISY", "LILY", "POPPY", "IRIS", "ORCHID", "LOTUS", "PEONY", "ASTER", "SEED", "BUD", "STEM", "LEAF",
+  "ROOT", "SOIL", "BLOOM", "PETAL", "VASE", "BEE", "RAIN", "MOSS", "FERN", "VIOLET", "DAHLIA", "POLLEN", "GARDEN", "SPROUT", "CLOVER",
+  "MARIGOLD", "LAVENDER", "BOUQUET", "TWIG", "RAKE", "SHED", "HONEY", "NECTAR", "THORN", "PANSY", "WATER", "SPADE", "BLOSSOM"];
+const COLORS = ["#f9a8c7", "#ffd98a", "#a9c4ff", "#b8e6a5", "#d6c2f5", "#ffc39a", "#9fe3d9", "#f7b3b3", "#c9d98f"];
+const FILL = "AAEEEIIOOUURRSSTTLLNNDDMPBGCHYKVW";
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+
+let n, cell, grid, words, found, sel, timeLeft, fx;
+function dirsFor(level) {
+  const d = [[0, 1], [1, 0]];
+  if (level >= 3) d.push([1, 1]);
+  if (level >= 5) d.push([-1, 1]);
+  if (level >= 7) d.push([0, -1], [-1, 0], [-1, -1], [1, -1]);  // backwards too
+  return d;
+}
+function build(level) {
+  n = SIZE[level - 1]; cell = GS / n;
+  for (let tries = 0; tries < 50; tries++) {
+    grid = Array.from({ length: n }, () => Array(n).fill(""));
+    const pool = WORDS.filter((w) => w.length <= n).sort(() => Math.random() - 0.5), dirs = dirsFor(level), placed = [];
+    for (const w of pool) {
+      if (placed.length >= COUNT[level - 1]) break;
+      for (let a = 0; a < 80; a++) {
+        const [dr, dc] = Arcade.pick(dirs), r0 = Math.floor(Math.random() * n), c0 = Math.floor(Math.random() * n);
+        const r1 = r0 + dr * (w.length - 1), c1 = c0 + dc * (w.length - 1);
+        if (r1 < 0 || r1 >= n || c1 < 0 || c1 >= n) continue;
+        let ok = true; for (let i = 0; i < w.length; i++) { const ch = grid[r0 + dr * i][c0 + dc * i]; if (ch && ch !== w[i]) { ok = false; break; } }
+        if (!ok) continue;
+        for (let i = 0; i < w.length; i++) grid[r0 + dr * i][c0 + dc * i] = w[i];
+        placed.push({ w, r0, c0, r1, c1 }); break;
+      }
+    }
+    if (placed.length < COUNT[level - 1] && tries < 49) continue;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!grid[r][c]) grid[r][c] = FILL[Math.floor(Math.random() * FILL.length)];
+    /* a filler letter must never spell a second copy of a word */
+    const text = (r, c, dr, dc, len) => { let s = ""; for (let i = 0; i < len; i++) { const rr = r + dr * i, cc = c + dc * i; if (rr < 0 || rr >= n || cc < 0 || cc >= n) return ""; s += grid[rr][cc]; } return s; };
+    let dup = false;
+    for (const p of placed) { let k = 0; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [-1, 1], [0, -1], [-1, 0], [-1, -1], [1, -1]]) if (text(r, c, dr, dc, p.w.length) === p.w) k++; if (k > 1) dup = true; }
+    if (dup && tries < 49) continue;
+    words = placed.sort((a, b) => a.w.localeCompare(b.w)); return;
+  }
+}
+const cellAt = (x, y) => { const c = Math.floor((x - GX) / cell), r = Math.floor((y - GY) / cell); return r >= 0 && r < n && c >= 0 && c < n ? [r, c] : null; };
+function snap(r0, c0, r, c) {
+  const dr = r - r0, dc = c - c0, len = Math.max(Math.abs(dr), Math.abs(dc));
+  if (!len) return [r0, c0];
+  /* snap to the nearest of the 8 directions */
+  const a = Math.round(Math.atan2(dr, dc) / (Math.PI / 4)) * (Math.PI / 4), sr = Math.round(Math.sin(a)), sc = Math.round(Math.cos(a));
+  let k = len; while (k > 0 && (r0 + sr * k < 0 || r0 + sr * k >= n || c0 + sc * k < 0 || c0 + sc * k >= n)) k--;
+  return [r0 + sr * k, c0 + sc * k];
+}
+function check(kit) {
+  if (!sel) return;
+  const [r0, c0] = sel.a, [r1, c1] = sel.b; sel = null;
+  const w = words.find((p) => !found.includes(p) && ((p.r0 === r0 && p.c0 === c0 && p.r1 === r1 && p.c1 === c1) || (p.r0 === r1 && p.c0 === c1 && p.r1 === r0 && p.c1 === c0)));
+  if (!w) { if (r0 !== r1 || c0 !== c1) sfx("bad"); return; }
+  w.col = COLORS[found.length % COLORS.length]; found.push(w);
+  const pts = 10 * w.w.length + Math.round(timeLeft / 4); kit.add(pts); sfx("good");
+  fx.push({ x: GX + ((c0 + c1) / 2 + 0.5) * cell, y: GY + ((r0 + r1) / 2 + 0.5) * cell, t: kit.now, txt: w.w + "!", c: "#ffd166" });
+  kit.collect();
+}
+
+Arcade.run({
+  id: "petal-words",
+  title: ["PETAL", "WORDS"],
+  blurb: "Garden words are hidden in the letters! Drag across a word to circle it. Words run across and down at first, then diagonally, and from level 7 even <b>backwards</b>. Find them all before the timer runs out. All <b>10 levels</b>.",
+  hint: "Drag from the first letter to the last · Space to pause",
+  legend: [{ sprite: "rose", label: "ROSE" }, { sprite: "bud", label: "BUD" }, { sprite: "tulip", label: "TULIP" }],
+  width: W, height: H, quietTap: true, quietCollect: true,
+  goal: (l) => (words ? words.length : COUNT[l - 1]),
+  goalLabel: (l) => `find ${COUNT[l - 1]} words in ${TIME[l - 1]} seconds${l === 3 ? " · now diagonal too" : l === 7 ? " · now backwards too!" : ""}`,
+  setup(level, kit) { build(level); found = []; sel = null; fx = []; timeLeft = TIME[level - 1]; },
+  update(dt, kit) {
+    fx = fx.filter((f) => kit.now - f.t < 900);
+    timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; kit.toast("Time's up!"); kit.fail(); }
+  },
+  pointerDown(x, y) { const c = cellAt(x, y); if (c) sel = { a: c, b: c }; },
+  pointerMove(x, y, kit, down) { if (!sel || !down) return; const c = cellAt(Math.max(GX, Math.min(GX + GS - 1, x)), Math.max(GY, Math.min(GY + GS - 1, y))); if (c) { const b = snap(sel.a[0], sel.a[1], c[0], c[1]); if (b[0] !== sel.b[0] || b[1] !== sel.b[1]) sfx("move"); sel.b = b; } },
+  pointerUp(x, y, kit) { check(kit); },
+  draw(ctx, kit) {
+    const S = Arcade.softPaper;
+    Arcade.grid(ctx, W, H);
+    ctx.save(); S.piece(ctx, S.rr(GX - 6, GY - 6, GS + 12, GS + 12, 16), "#fffaf0"); ctx.restore();
+    const capsule = (r0, c0, r1, c1, col) => {
+      ctx.save(); ctx.strokeStyle = col; ctx.lineCap = "round"; ctx.lineWidth = cell * 0.78; ctx.beginPath();
+      ctx.moveTo(GX + (c0 + 0.5) * cell, GY + (r0 + 0.5) * cell); ctx.lineTo(GX + (c1 + 0.5) * cell, GY + (r1 + 0.5) * cell); ctx.stroke(); ctx.restore();
+    };
+    for (const w of found) capsule(w.r0, w.c0, w.r1, w.c1, w.col);
+    if (sel) capsule(sel.a[0], sel.a[1], sel.b[0], sel.b[1], "rgba(183,154,224,.55)");
+    ctx.font = Arcade.font(Math.round(cell * 0.52)); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#2a3260";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) ctx.fillText(grid[r][c], GX + (c + 0.5) * cell, GY + (r + 0.5) * cell + 1);
+    ctx.textBaseline = "alphabetic";
+    /* word list */
+    const top = GY + GS + 22, cols = 3, cw = (W - 24) / cols;
+    words.forEach((p, i) => {
+      const x = 12 + (i % cols) * cw + cw / 2, y = top + Math.floor(i / cols) * 30 + 14, got = found.includes(p);
+      ctx.save(); S.piece(ctx, S.rr(x - cw / 2 + 4, y - 16, cw - 8, 26, 10), got ? p.col : "#fff"); ctx.restore();
+      ctx.font = Arcade.font(14); ctx.fillStyle = got ? "rgba(42,50,96,.55)" : "#2a3260"; ctx.fillText(p.w, x, y + 2);
+      if (got) { const tw = ctx.measureText(p.w).width; ctx.strokeStyle = "rgba(42,50,96,.6)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - tw / 2 - 2, y - 2); ctx.lineTo(x + tw / 2 + 2, y - 2); ctx.stroke(); }
+    });
+    /* timer */
+    const t = Math.ceil(timeLeft), low = timeLeft < 15;
+    ctx.font = Arcade.font(15); ctx.textAlign = "right"; ctx.fillStyle = low ? "#e2577f" : "#fff6e5"; Arcade.ink(ctx);
+    const lab = `⏱ ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; ctx.strokeText(lab, W - 12, H - 12); ctx.fillText(lab, W - 12, H - 12);
+    ctx.textAlign = "center"; ctx.font = Arcade.font(16);
+    for (const f of fx) { const q = (kit.now - f.t) / 900; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 24); ctx.fillText(f.txt, f.x, f.y - q * 24); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>

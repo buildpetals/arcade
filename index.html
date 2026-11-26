@@ -105,6 +105,10 @@
 /* New games can bring their own lobby icon: paint(c) draws inside a 100 x 100 box with Arcade.softPaper helpers. */
 const SPx = Arcade.softPaper;
 const GAMES = [
+  { slug: "seed-drop", name: "Seed Drop", sprite: "icon-seed-drop", note: "Drop seeds into pots", isNew: true,
+    paint(c) { [[20, 14], [50, 14], [80, 14], [35, 40], [65, 40], [20, 64], [50, 64], [80, 64]].forEach(([x, y]) => SPx.piece(c, SPx.circ(x, y, 6), "#5fae5a")); const p = new Path2D(); p.moveTo(32, 80); p.lineTo(68, 80); p.lineTo(62, 98); p.lineTo(38, 98); p.closePath(); SPx.piece(c, p, "#d9825b"); SPx.piece(c, SPx.ell(50, 52, 6, 8, 0.5), "#a9713f"); } },
+  { slug: "petal-words", name: "Petal Words", sprite: "icon-petal-words", note: "Find the hidden words", isNew: true,
+    paint(c) { SPx.piece(c, SPx.rr(6, 6, 88, 88, 14), "#fffaf0"); c.strokeStyle = "#f9a8c7"; c.lineWidth = 20; c.lineCap = "round"; c.beginPath(); c.moveTo(22, 50); c.lineTo(78, 50); c.stroke(); c.font = "700 22px Fredoka, sans-serif"; c.textAlign = "center"; c.fillStyle = "#2a3260"; ["R", "O", "S", "E"].forEach((ch, i) => c.fillText(ch, 22 + i * 19, 58)); ["B", "U", "D"].forEach((ch, i) => c.fillText(ch, 31 + i * 19, 28)); } },
   { slug: "florist-rush", name: "Florist Rush", sprite: "icon-florist-rush", note: "Fill bouquet orders", isNew: true,
     paint(c) { SPx.piece(c, SPx.rr(8, 8, 60, 34, 12), "#fff"); [["rose", 12], ["tulip", 38]].forEach(([k, x]) => { SPx.paint[k](cx(c, x, 11, 0.26)); c.restore(); }); const p = new Path2D(); p.moveTo(40, 52); p.lineTo(92, 52); p.lineTo(70, 96); p.lineTo(62, 96); p.closePath(); SPx.piece(c, p, "#b79ae0"); SPx.paint.rose(cx(c, 46, 30, 0.38)); c.restore(); } },
   { slug: "compost-sort", name: "Compost Sort", sprite: "icon-compost-sort", note: "Sort it fast", isNew: true,
