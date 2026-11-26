@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Watering Pipes · Build Petals Arcade</title>
+<script src="../kit/arcade-kit.js"></script>
+</head>
+<body>
+<script>
+/* WATERING PIPES — tap pipes to turn them until water from the tap reaches every flower. */
+const W = 360, H = 480, BOARD = 336, TOP = 96;
+const SIZE = [4, 4, 5, 5, 5, 6, 6, 6, 7, 7];
+const SLACK = [null, null, 10, 8, 7, 7, 6, 6, 5, 5];     // extra turns allowed beyond the shortest fix (null = no limit)
+const FLOWERS = ["rose", "tulip", "daisy", "sunflower", "bluebell", "poppy", "lily"];
+const sfx = (n) => Arcade.sfx && Arcade.sfx(n);
+const N = 1, E = 2, S = 4, Wb = 8, DIRS = [[N, -1, 0, S], [E, 0, 1, Wb], [S, 1, 0, N], [Wb, 0, -1, E]];
+const rot = (m) => ((m << 1) | (m >> 3)) & 15;
+
+let n, cell, ox, tiles, src, flowers, watered, moves, limit, solvedAt, fx, wetCount;
+
+function build(level) {
+  n = SIZE[level - 1]; cell = BOARD / n; ox = (W - BOARD) / 2;
+  const sol = Array.from({ length: n }, () => Array(n).fill(0)), seen = Array.from({ length: n }, () => Array(n).fill(false));
+  src = Math.floor(Math.random() * n);
+  /* random spanning tree (growing tree: mostly newest cell, sometimes a random one, for long winding pipes with branches) */
+  const live = [[0, src]]; seen[0][src] = true;
+  while (live.length) {
+    const i = Math.random() < 0.7 ? live.length - 1 : Math.floor(Math.random() * live.length), [r, c] = live[i];
+    const opts = DIRS.filter(([, dr, dc]) => { const rr = r + dr, cc = c + dc; return rr >= 0 && rr < n && cc >= 0 && cc < n && !seen[rr][cc]; });
+    if (!opts.length) { live.splice(i, 1); continue; }
+    const [b, dr, dc, back] = Arcade.pick(opts), rr = r + dr, cc = c + dc;
+    sol[r][c] |= b; sol[rr][cc] |= back; seen[rr][cc] = true; live.push([rr, cc]);
+  }
+  sol[0][src] |= N; // the tap feeds the source cell from above
+  tiles = []; flowers = []; let need = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    let m = sol[r][c], k = Math.floor(Math.random() * 4);
+    const deg = [N, E, S, Wb].filter((b) => m & b).length;
+    if (deg === 4) k = 0;
+    for (let i = 0; i < k; i++) m = rot(m);
+    /* shortest number of clockwise turns back to a working shape */
+    let best = 0, t = m; for (let i = 0; i < 4; i++) { if (t === sol[r][c]) { best = i; break; } t = rot(t); }
+    need += best;
+    const fl = deg === 1 && !(r === 0 && c === src) ? Arcade.pick(FLOWERS) : null;
+    const tile = { r, c, m, sol: sol[r][c], ang: 0, fl, wet: false, everWet: false };
+    if (fl) flowers.push(tile);
+    tiles.push(tile);
+  }
+  /* never start solved */
+  if (need === 0) { const t = tiles.find((x) => [N, E, S, Wb].filter((b) => x.m & b).length < 4); t.m = rot(t.m); need = 1; }
+  limit = SLACK[level - 1] == null ? Infinity : need + SLACK[level - 1];
+}
+const at = (r, c) => tiles[r * n + c];
+function flow() {
+  tiles.forEach((t) => (t.wet = false));
+  const s = at(0, src); if (!(s.m & N)) return 0;
+  const q = [s]; s.wet = true;
+  while (q.length) {
+    const t = q.shift();
+    for (const [b, dr, dc, back] of DIRS) {
+      if (!(t.m & b)) continue; const r = t.r + dr, c = t.c + dc;
+      if (r < 0 || r >= n || c < 0 || c >= n) continue;
+      const o = at(r, c); if (!o.wet && o.m & back) { o.wet = true; q.push(o); }
+    }
+  }
+  return flowers.filter((f) => f.wet).length;
+}
+function info(kit) { kit.setInfo(limit === Infinity ? "Turns <b>" + moves + "</b>" : "<b>" + Math.max(0, limit - moves) + "</b> turns left"); }
+
+Arcade.run({
+  id: "watering-pipes",
+  title: ["WATERING", "PIPES"],
+  blurb: "The garden is thirsty! Tap a pipe to turn it. Connect the pipes so water from the tap reaches <b>every flower</b>. From level 3 you have a limited number of turns. All <b>10 levels</b>.",
+  hint: "Tap or click a pipe to turn it · Space to pause",
+  legend: [{ sprite: "bud", label: "dry" }, { sprite: "rose", label: "watered!" }],
+  width: W, height: H, quietCollect: true, quietTap: true,
+  goal: () => (flowers ? flowers.length : 1),
+  goalLabel: (l) => `water every flower on a ${SIZE[l - 1]}×${SIZE[l - 1]} garden${SLACK[l - 1] != null ? " · limited turns" : ""}`,
+  setup(level, kit) {
+    build(level); moves = 0; solvedAt = 0; fx = [];
+    wetCount = flow(); flowers.forEach((f) => (f.everWet = f.wet)); kit.got = wetCount; info(kit);
+  },
+  update(dt, kit) {
+    for (const t of tiles) if (t.ang) t.ang = Math.max(0, t.ang - dt * 900);
+    fx = fx.filter((f) => kit.now - f.t < 800);
+    if (solvedAt && kit.now - solvedAt > 650) { solvedAt = 0; kit.add(100 + (limit === Infinity ? 0 : (limit - moves) * 10)); kit.got = 0; kit.collect(flowers.length); }
+  },
+  pointerDown(x, y, kit) {
+    if (solvedAt) return;
+    const c = Math.floor((x - ox) / cell), r = Math.floor((y - TOP) / cell);
+    if (r < 0 || r >= n || c < 0 || c >= n) return;
+    const t = at(r, c); t.m = rot(t.m); t.ang += 90; moves++; info(kit); sfx("move");
+    const before = wetCount; wetCount = flow();
+    for (const f of flowers) if (f.wet && !f.everWet) { f.everWet = true; kit.add(10); fx.push({ x: ox + (f.c + 0.5) * cell, y: TOP + f.r * cell, t: kit.now, txt: "+10", c: "#ffd166" }); }
+    if (wetCount > before) sfx("pop");
+    kit.got = Math.min(wetCount, flowers.length - 1); kit.collect(0);
+    if (wetCount === flowers.length) { solvedAt = kit.now; sfx("good"); }
+    else if (moves >= limit) { kit.toast("Out of turns!"); kit.fail(); }
+  },
+  draw(ctx, kit) {
+    Arcade.grid(ctx, W, H);
+    const s = Arcade.softPaper;
+    /* tap + water drops */
+    const tx = ox + (src + 0.5) * cell;
+    ctx.save(); s.piece(ctx, s.rr(tx - 22, TOP - 58, 44, 18, 8), "#9aa3c7"); s.piece(ctx, s.rr(tx - 9, TOP - 44, 18, 40, 6), "#b7bfdd"); s.piece(ctx, s.circ(tx, TOP - 62, 9), "#e2577f"); ctx.restore();
+    const drip = (kit.now / 600) % 1; ctx.fillStyle = "#6fb3f0"; ctx.globalAlpha = 1 - drip; ctx.beginPath(); ctx.arc(tx, TOP - 4 + drip * 14, 3.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.font = Arcade.font(14); ctx.textAlign = "left"; ctx.fillStyle = "#fff6e5"; Arcade.ink(ctx);
+    const lab = `${wetCount}/${flowers.length} flowers watered`; ctx.strokeText(lab, ox, H - 14); ctx.fillText(lab, ox, H - 14);
+    if (limit !== Infinity) { ctx.textAlign = "right"; const tl = `Turns ${moves}/${limit}`; ctx.strokeText(tl, ox + BOARD, H - 14); ctx.fillText(tl, ox + BOARD, H - 14); }
+    /* board */
+    ctx.save(); s.piece(ctx, s.rr(ox - 6, TOP - 6, BOARD + 12, BOARD + 12, 16), "#a7764a"); ctx.restore();
+    const lw = Math.max(7, cell * 0.24);
+    for (const t of tiles) {
+      const x = ox + t.c * cell, y = TOP + t.r * cell, cx = x + cell / 2, cy = y + cell / 2;
+      ctx.fillStyle = (t.r + t.c) % 2 ? "#c9e8b6" : "#bfe2a9"; ctx.fillRect(x, y, cell, cell);
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cell, cell); ctx.clip(); ctx.translate(cx, cy); ctx.rotate((-t.ang * Math.PI) / 180);
+      ctx.lineCap = "butt";
+      for (const [pass, col, w] of [[0, "rgba(40,30,70,.25)", lw + 5], [1, t.wet ? "#4f8fe0" : "#b9a88e", lw], [2, t.wet ? "#9fd3f5" : "#d8cbb5", lw * 0.4]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
+        [[N, 0, -1], [E, 1, 0], [S, 0, 1], [Wb, -1, 0]].forEach(([b, dx, dy]) => { if (t.m & b) { ctx.moveTo(pass === 0 ? 0 : 0, pass === 0 ? 1.5 : 0); ctx.lineTo(dx * cell / 2, dy * cell / 2 + (pass === 0 ? 1.5 : 0)); } });
+        ctx.stroke();
+      }
+      ctx.fillStyle = t.wet ? "#4f8fe0" : "#b9a88e"; ctx.beginPath(); ctx.arc(0, 0, lw * 0.62, 0, 7); ctx.fill();
+      ctx.restore();
+      if (t.fl) {
+        const sz = cell * 0.54, bob = t.wet ? Math.sin(kit.now / 300 + t.c) * 1.5 : 0;
+        Arcade.drawSprite(ctx, t.wet ? t.fl : "bud", cx - sz / 2, cy - sz / 2 + bob, sz, { alpha: t.wet ? 1 : 0.8 });
+      }
+    }
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1;
+    for (let i = 1; i < n; i++) { ctx.beginPath(); ctx.moveTo(ox + i * cell, TOP); ctx.lineTo(ox + i * cell, TOP + BOARD); ctx.moveTo(ox, TOP + i * cell); ctx.lineTo(ox + BOARD, TOP + i * cell); ctx.stroke(); }
+    ctx.textAlign = "center"; ctx.font = Arcade.font(15);
+    for (const f of fx) { const q = (kit.now - f.t) / 800; ctx.globalAlpha = 1 - q; ctx.fillStyle = f.c; Arcade.ink(ctx); ctx.strokeText(f.txt, f.x, f.y - q * 20); ctx.fillText(f.txt, f.x, f.y - q * 20); }
+    ctx.globalAlpha = 1;
+  },
+});
+</script>
+</body>
+</html>
